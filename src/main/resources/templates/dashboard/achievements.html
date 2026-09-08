@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="achievements-section" class="w-100">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <h1 class="text-white fw-bold m-0">
+            <i class="bi bi-trophy-fill text-warning me-3"></i>成就殿堂牆
+        </h1>
+        <!-- 這裡可以預留未來切換「我的成就」或「全部成就」的按鈕組，目前先保持乾淨 -->
+    </div>
+
+    <!-- 成就卡片容器 -->
+    <div class="row g-4" id="achievement-cards-container">
+        <!-- 開始遍歷後端帶進來的成就進度列表 -->
+        <div class="col-12 col-md-6 col-lg-4 achievement-card-item" th:each="ach : ${achievements}">
+
+            <!-- 使用 th:classappend 根據是否解鎖動態加上 border-info 或是 border-secondary，並透過自訂屬性區分解鎖狀態 -->
+            <div class="dashboard-card p-4 h-100 border-start border-4 position-relative"
+                 style="background-color: #1e1e24 !important;"
+                 th:classappend="${ach.isUnlocked} ? 'border-info' : 'border-secondary opacity-60'">
+
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <!-- 根據解鎖狀態調整 Badge 顏色 -->
+                        <span class="badge mb-2"
+                              th:classappend="${ach.isUnlocked} ? 'bg-info text-dark' : 'bg-secondary text-light'"
+                              th:text="${ach.isUnlocked} ? '已解鎖' : '冒險中'">狀態</span>
+                        <h5 class="text-white fw-bold mb-1" th:text="${ach.title}">成就名稱</h5>
+                        <p class="text-secondary small mb-0" th:text="${ach.description}">成就敘述</p>
+                    </div>
+
+                    <!-- 單純顯示 0 / ? 的進度文本，不畫進度條 -->
+                    <span class="text-warning fw-bold fs-5" th:text="${ach.currentValue} + ' / ' + ${ach.targetValue}">0 / 1</span>
+                </div>
+
+                <!-- 獎勵區塊 -->
+                <div class="bg-dark p-3 rounded mb-2 small">
+                    <div class="text-white-50 fw-bold mb-2">挑戰獎勵：</div>
+                    <div class="d-flex flex-column gap-1">
+                        <span class="text-warning fw-bold"><i class="bi bi-coin me-2"></i>+<span th:text="${ach.rewardCoin}">50</span> Coin</span>
+                        <span class="text-info fw-bold"><i class="bi bi-patch-plus me-2"></i>+<span th:text="${ach.rewardExp}">100</span> EXP</span>
+
+                        <!-- 如果有額外送稱號，才顯示出來 -->
+                        <span th:if="${ach.rewardTitle != null}" class="text-success fw-bold">
+                            <i class="bi bi-person-badge-fill me-2"></i>稱號：【<span th:text="${ach.rewardTitle}">稱號</span>】
+                        </span>
+                        <!-- 如果有額外送限定頭像，才顯示出來 -->
+                        <span th:if="${ach.rewardAvatarUrl != null}" class="text-danger fw-bold">
+                            <i class="bi bi-image-alt me-2"></i>限定頭像外觀
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 如果目前沒有任何成就資料的防呆提示 -->
+        <div class="col-12 text-center text-muted py-5" th:if="${#lists.isEmpty(achievements)}">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>暫無任何成就資料
+        </div>
+    </div>
+</div>
+</body>
+</html>

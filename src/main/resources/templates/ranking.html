@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>筆記榮譽殿堂 - NoteShare</title>
+    <!-- Bootstrap 5.3.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons 1.11.3 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- 玩家客製化樣式 -->
+    <link rel="stylesheet" th:href="@{/css/gamer-custom.css}">
+    <style>
+        .rank-1 {
+            background-color: rgba(255, 193, 7, 0.12) !important;
+            font-weight: bold;
+        }
+        .rank-2 {
+            background-color: rgba(108, 117, 125, 0.12) !important;
+            font-weight: bold;
+        }
+        .rank-3 {
+            background-color: rgba(253, 126, 20, 0.12) !important;
+            font-weight: bold;
+        }
+        .badge-rank {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .reward-banner {
+            background: linear-gradient(135deg, #212529 0%, #0dcaf0 100%);
+            color: white;
+            border-radius: 1rem;
+        }
+        .stat-icon {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-left: 12px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<!-- 頂部導覽列 (完全同步筆記大廳) -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold text-info" href="/notes">📚 NoteShare 筆記平台</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto animate-align">
+                <li class="nav-item d-flex align-items-center"><a class="nav-link" href="/">主頁</a></li>
+                <li class="nav-item d-flex align-items-center"><a class="nav-link" href="/notes">筆記大廳</a></li>
+                <li class="nav-item d-flex align-items-center"><a class="nav-link active" href="/ranking">排行榜</a></li>
+
+                <li class="nav-item d-flex align-items-center" th:if="${user == null}">
+                    <a class="nav-link btn btn-primary btn-sm text-white px-3 ms-2"
+                       href="#"
+                       onclick="window.location.href='/login?target=' + encodeURIComponent(window.location.href)">登入</a>
+                </li>
+
+                <li class="nav-item ms-3 dropdown d-flex align-items-center" th:unless="${user == null}">
+
+                    <a class="nav-link dropdown-toggle d-flex align-items-center text-light border-0 p-0 pe-2"
+                       href="#" id="userNavbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+
+                        <span class="text-light me-3 small fw-semibold d-none d-sm-inline" th:text="${user.nickname}">使用者名稱</span>
+
+                        <div class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle"
+                             style="width: 42px; height: 42px; transition: 0.3s;"
+                             th:classappend="${equippedFrame != null ? equippedFrame.styleValue : 'border border-info'}"
+                             th:styleappend="${equippedFrame == null ? 'box-shadow: 0 0 10px rgba(13, 202, 240, 0.3);' : ''}">
+
+                            <img th:src="${equippedAvatar != null ? '/images/avatars/' + equippedAvatar.styleValue : 'https://api.dicebear.com/7.x/identicon/svg?seed=' + #strings.toLowerCase(#strings.trim(user.username))}"
+                                 class="rounded-circle border border-2 border-info bg-white shadow-sm user-avatar-img-slot"
+                                 style="width: 40px; height: 40px; object-fit: cover; transition: 0.3s;">
+                        </div>
+                    </a>
+
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-3 px-2 mt-2 rounded-3" aria-labelledby="userNavbarDropdown" style="min-width: 200px; margin-top: 10px !important;">
+                        <li class="px-3 py-1 mb-2">
+                            <div class="fw-bold text-dark text-truncate" th:text="${user.nickname}">暱稱</div>
+                            <div class="text-muted small text-truncate">@<span th:text="${user.username}">username</span></div>
+                        </li>
+                        <li><hr class="dropdown-divider opacity-50"></li>
+
+                        <li class="my-1">
+                            <a class="dropdown-item py-2 rounded-3 d-flex align-items-center text-dark" th:href="@{/member/{id}(id=${user.id})}">
+                                <i class="bi bi-person-circle text-info fs-5 me-2"></i>
+                                <span class="fw-semibold">進入個人主頁</span>
+                            </a>
+                        </li>
+
+                        <li class="my-1">
+                            <a class="dropdown-item py-2 rounded-3 d-flex align-items-center text-muted small" href="/dashboard">
+                                <i class="bi bi-gear me-2"></i> 個人檔案後台
+                            </a>
+                        </li>
+
+                        <li><hr class="dropdown-divider opacity-50"></li>
+
+                        <li class="mt-1">
+                            <a class="dropdown-item py-2 rounded-3 bg-danger-subtle text-danger fw-bold d-flex align-items-center" href="/logout">
+                                <i class="bi bi-box-arrow-right fs-5 me-2"></i>
+                                <span>安全登出系統</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-4">
+
+    <!-- 獎勵預告 Banner -->
+    <div class="reward-banner p-4 mb-4 shadow-sm d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-trophy-fill text-warning me-2"></i>筆記榮譽殿堂</h2>
+            <p class="mb-0 text-white-50">與來自各地的使用者一起分享知識，透過排行榜展現你的筆記與互動成果！</p>
+        </div>
+<!--        <div class="text-end mt-2 mt-md-0">-->
+<!--            <div class="badge bg-warning text-dark fs-6 px-3 py-2 rounded-pill mb-1 shadow-sm">-->
+<!--            </div>-->
+<!--            <div class="small text-white-50">-->
+<!--                <i class="bi bi-clock-history me-1"></i>距離本週結算還剩：<span id="countdown" class="fw-bold text-white">3天 14小時</span>-->
+<!--            </div>-->
+<!--        </div>-->
+    </div>
+
+    <!-- 4 大 Tabs 膠囊篩選按鈕 (同步大廳 style) -->
+    <div class="bg-white p-3 rounded-3 shadow-sm mb-4">
+        <div class="d-flex flex-wrap gap-2">
+            <a th:href="@{/ranking(tab='weekly')}"
+               class="btn btn-sm rounded-pill px-4 fw-bold"
+               th:classappend="${activeTab == 'weekly' || activeTab == null} ? 'btn-info text-dark' : 'btn-outline-secondary'">
+                🔥 近七日熱門
+            </a>
+            <a th:href="@{/ranking(tab='monthly')}"
+               class="btn btn-sm rounded-pill px-4 fw-bold"
+               th:classappend="${activeTab == 'monthly'} ? 'btn-info text-dark' : 'btn-outline-secondary'">
+                📅 近30日熱門
+            </a>
+            <a th:href="@{/ranking(tab='all')}"
+               class="btn btn-sm rounded-pill px-4 fw-bold"
+               th:classappend="${activeTab == 'all'} ? 'btn-info text-dark' : 'btn-outline-secondary'">
+                👑 總排行榜
+            </a>
+            <a th:href="@{/ranking(tab='authors')}"
+               class="btn btn-sm rounded-pill px-4 fw-bold"
+               th:classappend="${activeTab == 'authors'} ? 'btn-info text-dark' : 'btn-outline-secondary'">
+                ✍️ 創作者排行榜
+            </a>
+        </div>
+    </div>
+
+    <!-- 榜單表格卡片 -->
+    <div class="card border-0 shadow-sm rounded-3 overflow-hidden mb-5">
+        <div class="card-body p-0">
+
+            <!-- A. 筆記榜單 (週榜 / 月榜 / 總榜) -->
+            <div th:if="${activeTab != 'authors'}" class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="width: 80px;" class="text-center">名次</th>
+                        <th>筆記標題</th>
+                        <th style="width: 130px;">分類</th>
+                        <th style="width: 150px;">作者</th>
+                        <th style="width: 130px;">發佈日期</th>
+                        <th style="width: 220px;" class="text-end pe-4">熱度數據</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="note, iterStat : ${noteList}"
+                        th:classappend="${iterStat.count == 1} ? 'rank-1' : (${iterStat.count == 2} ? 'rank-2' : (${iterStat.count == 3} ? 'rank-3' : ''))">
+
+                        <!-- 名次與圖示 -->
+                        <td class="text-center">
+                            <span th:if="${iterStat.count == 1}" class="badge-rank text-warning fs-4"><i class="bi bi-trophy-fill"></i></span>
+                            <span th:if="${iterStat.count == 2}" class="badge-rank text-secondary fs-4"><i class="bi bi-award-fill"></i></span>
+                            <span th:if="${iterStat.count == 3}" class="badge-rank text-danger fs-4"><i class="bi bi-award-fill"></i></span>
+                            <span th:if="${iterStat.count > 3}" class="fw-bold text-muted" th:text="${iterStat.count}">4</span>
+                        </td>
+
+                        <!-- 標題與連結 -->
+                        <td>
+                            <a th:href="@{/notes/view?id={id}(id=${note.id})}" class="text-decoration-none text-dark fw-bold" th:text="${note.title}">
+                                筆記標題名稱
+                            </a>
+                        </td>
+
+                        <!-- 分類 -->
+                        <td>
+                            <span class="badge fw-semibold px-3 py-2"
+                                  th:classappend="${note.type != null} ? ${note.type.cssClass} : 'bg-secondary'"
+                                  th:text="${note.type != null} ? ${note.type.displayName} : '未分類'">
+                                分類
+                            </span>
+                        </td>
+
+                        <!-- 作者 -->
+                        <td>
+                            <i class="bi bi-person me-1 text-muted"></i>
+                            <span th:text="${note.authorName}">作者名稱</span>
+                        </td>
+
+                        <!-- 日期 -->
+                        <td class="text-muted small" th:text="${#temporals.format(note.createdAt, 'yyyy-MM-dd')}">
+                            2026-08-12
+                        </td>
+
+                        <!-- 熱度數據 -->
+                        <td class="text-end pe-4">
+                            <span class="stat-icon" title="點閱數"><i class="bi bi-eye me-1"></i><span th:text="${note.viewsCount}">0</span></span>
+                            <span class="stat-icon text-danger" title="按讚數"><i class="bi bi-heart-fill me-1"></i><span th:text="${note.likesCount}">0</span></span>
+                            <span class="stat-icon text-warning" title="收藏數"><i class="bi bi-bookmark-fill me-1"></i><span th:text="${note.bookmarkCount}">0</span></span>
+                            <span class="stat-icon text-primary" title="留言數"><i class="bi bi-chat-left-text-fill me-1"></i><span th:text="${note.commentCount}">0</span></span>
+                        </td>
+                    </tr>
+
+                    <!-- 無資料提示 -->
+                    <tr th:if="${#lists.isEmpty(noteList)}">
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 mb-2 d-block"></i>
+                            <p class="mb-0">該時段目前尚無上榜的筆記資料</p>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- B. 創作者英雄榜 -->
+            <div th:if="${activeTab == 'authors'}" class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="width: 80px;" class="text-center">名次</th>
+                        <th>創作者</th>
+                        <th class="text-center">發布筆記數</th>
+                        <th class="text-center">獲得總按讚</th>
+                        <th class="text-center">獲得總收藏</th>
+                        <th class="text-end pe-4">總聲譽分數</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="author, iterStat : ${authorList}"
+                        th:classappend="${iterStat.count == 1} ? 'rank-1' : (${iterStat.count == 2} ? 'rank-2' : (${iterStat.count == 3} ? 'rank-3' : ''))">
+
+                        <!-- 名次 -->
+                        <td class="text-center">
+                            <span th:if="${iterStat.count == 1}" class="badge-rank text-warning fs-4"><i class="bi bi-trophy-fill"></i></span>
+                            <span th:if="${iterStat.count == 2}" class="badge-rank text-secondary fs-4"><i class="bi bi-award-fill"></i></span>
+                            <span th:if="${iterStat.count == 3}" class="badge-rank text-danger fs-4"><i class="bi bi-award-fill"></i></span>
+                            <span th:if="${iterStat.count > 3}" class="fw-bold text-muted" th:text="${iterStat.count}">4</span>
+                        </td>
+
+                        <!-- 創作者頭像與暱稱 (使用 ?. 安全導航與 ?: 預設值) -->
+                        <td>
+                            <div class="d-flex align-items-center" th:if="${author != null}">
+
+                                <!-- 外層頭像框：若無裝備頭像框，則退回預設外框 -->
+                                <div class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle me-3"
+                                     style="width: 42px; height: 42px; flex-shrink: 0;"
+                                     th:classappend="${#strings.isEmpty(author?.frameStyle) ? 'border border-info' : author.frameStyle}"
+                                     th:styleappend="${#strings.isEmpty(author?.frameStyle) ? 'box-shadow: 0 0 10px rgba(13, 202, 240, 0.3);' : ''}">
+
+                                    <!-- 內層頭像圖片：若無設定頭像，則使用 DiceBear 自動生成 -->
+                                    <img th:src="${author?.avatarStyle != null && !#strings.isEmpty(author.avatarStyle) ? '/images/avatars/' + author.avatarStyle : 'https://api.dicebear.com/7.x/identicon/svg?seed=' + #strings.toLowerCase(#strings.trim(author?.username ?: 'user'))}"
+                                         class="rounded-circle border border-2 border-info bg-white shadow-sm"
+                                         style="width: 40px; height: 40px; object-fit: cover;">
+                                </div>
+
+                                <!-- 暱稱與帳號 -->
+                                <div>
+                                    <div class="fw-bold text-dark" th:text="${author?.authorName ?: '匿名'}">暱稱</div>
+                                    <div class="text-muted small">@<span th:text="${author?.username ?: 'unknown'}">username</span></div>
+                                </div>
+
+                            </div>
+                        </td>
+
+                        <td class="text-center fw-semibold" th:text="${(author?.totalNotes ?: 0) + ' 篇'}">0 篇</td>
+                        <td class="text-center text-danger fw-semibold"><i class="bi bi-heart-fill me-1"></i><span th:text="${author?.totalLikes ?: 0}">0</span></td>
+                        <td class="text-center text-warning fw-semibold"><i class="bi bi-bookmark-fill me-1"></i><span th:text="${author?.totalBookmarks ?: 0}">0</span></td>
+                        <td class="text-end pe-4">
+                            <span class="badge bg-info text-dark fs-6 px-3 shadow-sm" th:text="${'🔥 ' + (author?.reputationScore ?: 0)}">🔥 0</span>
+                        </td>
+                    </tr>
+
+                    <!-- 無資料提示 -->
+                    <tr th:if="${#lists.isEmpty(authorList)}">
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 mb-2 d-block"></i>
+                            <p class="mb-0">目前尚無創作者上榜資料</p>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Bootstrap 5.3.3 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

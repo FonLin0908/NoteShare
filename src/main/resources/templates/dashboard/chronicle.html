@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="chronicle-section" class="w-100">
+
+    <!-- CSS 樣式：時間軸線條與節點視覺設計 -->
+    <style>
+        .timeline-container {
+            position: relative;
+            padding-left: 2.5rem;
+        }
+
+        /* 貫穿時間軸的垂直暗色導軌 */
+        .timeline-container::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            bottom: 10px;
+            left: 1.15rem;
+            width: 3px;
+            background: linear-gradient(180deg, #00bcd4 0%, #333333 100%);
+            border-radius: 2px;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        /* 時間軸左側發光節點圖標 */
+        .timeline-icon {
+            position: absolute;
+            left: -2.5rem;
+            top: 0;
+            width: 2.3rem;
+            height: 2.3rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.1rem;
+            box-shadow: 0 0 10px rgba(0, 188, 212, 0.4);
+            z-index: 2;
+        }
+
+        .timeline-card {
+            background-color: #1e1e24 !important;
+            border: 1px solid #333;
+            border-radius: 12px;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .timeline-card:hover {
+            transform: translateX(5px);
+            border-color: #00bcd4;
+        }
+    </style>
+
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <h1 class="text-white fw-bold m-0">
+            <i class="bi bi-hourglass-split text-info me-3"></i>冒險者編年史
+        </h1>
+        <span class="text-secondary small">記錄你在 NoteShare 留下的所有榮譽足跡</span>
+    </div>
+
+    <!-- 時間軸主要容器 -->
+    <div class="timeline-container" id="chronicle-timeline">
+
+        <!-- 開始遍歷後端回傳的歷史事件列表 (chronicles) -->
+        <div class="timeline-item" th:each="event : ${chronicles}">
+
+            <!-- 左側圖標節點：動態套用資料庫存的 bgColor 和 iconClass -->
+            <div class="timeline-icon" th:classappend="${event.badgeColor}">
+                <i class="bi" th:classappend="${event.iconClass}"></i>
+            </div>
+
+            <!-- 右側事件卡片 -->
+            <div class="timeline-card p-4 shadow-sm">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <!-- 事件標題 -->
+                        <h5 class="text-white fw-bold mb-1" th:text="${event.title}">事件標題</h5>
+                    </div>
+                    <!-- 時間標籤：格式化為 yyyy-MM-dd HH:mm -->
+                    <span class="badge bg-dark text-info border border-secondary px-2 py-1 small fw-normal">
+                        <i class="bi bi-clock me-1"></i>
+                        <span th:text="${#temporals.format(event.createdAt, 'yyyy-MM-dd HH:mm')}">2026-07-23 10:00</span>
+                    </span>
+                </div>
+
+                <!-- 事件詳細內文 -->
+                <p class="text-secondary mb-0 small" th:text="${event.content}">事件詳細內容說明...</p>
+            </div>
+        </div>
+
+        <!-- 空資料防呆提示 -->
+        <div class="text-center text-muted py-5" th:if="${#lists.isEmpty(chronicles)}">
+            <i class="bi bi-journal-x fs-1 d-block mb-2"></i>編年史目前一片空白，快去發表筆記或完成任務留下足跡吧！
+        </div>
+
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${note.title}">筆記詳細頁</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/gamer-custom.css}">
+    <style>
+        .detail-cover {
+            height: 350px;
+            object-fit: cover;
+            width: 100%;
+        }
+        .note-content {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #2c3e50;
+            white-space: pre-wrap; /* 保留換行與空格格式 */
+        }
+        /* 📸 自訂多圖預覽牆與燈箱樣式 */
+        .preview-img {
+            height: 140px;
+            object-fit: cover;
+            cursor: zoom-in;
+            transition: transform 0.2s, filter 0.2s;
+        }
+        .preview-img:hover {
+            transform: scale(1.03);
+            filter: brightness(0.9);
+        }
+        .lightbox-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            cursor: zoom-out;
+        }
+        .lightbox-img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<input type="hidden" id="current-user-id" th:value="${session.loginUser != null ? session.loginUser.id : ''}">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold text-info" href="/notes">📚 NoteShare 筆記平台</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto animate-align">
+                <li class="nav-item d-flex align-items-center"><a class="nav-link" href="/">主頁</a></li>
+                <li class="nav-item d-flex align-items-center"><a class="nav-link" href="/notes">筆記大廳</a></li>
+                <li class="nav-item d-flex align-items-center"><a class="nav-link" href="/ranking">排行榜</a></li>
+
+                <li class="nav-item d-flex align-items-center" th:if="${user == null}">
+                    <a class="nav-link btn btn-primary btn-sm text-white px-3 ms-2"
+                       href="#"
+                       onclick="window.location.href='/login?target=' + encodeURIComponent(window.location.href)">登入</a>
+                </li>
+
+                <li class="nav-item ms-3 dropdown d-flex align-items-center" th:unless="${user == null}">
+
+                    <a class="nav-link dropdown-toggle d-flex align-items-center text-light border-0 p-0 pe-2"
+                       href="#" id="userNavbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+
+                        <span class="text-light me-3 small fw-semibold d-none d-sm-inline" th:text="${user.nickname}">使用者名稱</span>
+
+                        <div class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle"
+                             style="width: 42px; height: 42px; transition: 0.3s;"
+                             th:classappend="${equippedFrame != null ? equippedFrame.styleValue : 'border border-info'}"
+                             th:styleappend="${equippedFrame == null ? 'box-shadow: 0 0 10px rgba(13, 202, 240, 0.3);' : ''}">
+
+                            <img th:src="${equippedAvatar != null ? '/images/avatars/' + equippedAvatar.styleValue : 'https://api.dicebear.com/7.x/identicon/svg?seed=' + #strings.toLowerCase(#strings.trim(user.username))}"
+                                 class="rounded-circle border border-2 border-info bg-white shadow-sm user-avatar-img-slot"
+                                 style="width: 40px; height: 40px; object-fit: cover; transition: 0.3s;">
+                        </div>
+                    </a>
+
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-3 px-2 mt-2 rounded-3" aria-labelledby="userNavbarDropdown" style="min-width: 200px; margin-top: 10px !important;">
+                        <li class="px-3 py-1 mb-2">
+                            <div class="fw-bold text-dark text-truncate" th:text="${user.nickname}">暱稱</div>
+                            <div class="text-muted small text-truncate">@<span th:text="${user.username}">username</span></div>
+                        </li>
+                        <li><hr class="dropdown-divider opacity-50"></li>
+
+                        <li class="my-1">
+                            <a class="dropdown-item py-2 rounded-3 d-flex align-items-center text-dark" th:href="@{/member/{id}(id=${user.id})}">
+                                <i class="bi bi-person-circle text-info fs-5 me-2"></i>
+                                <span class="fw-semibold">進入個人主頁</span>
+                            </a>
+                        </li>
+
+                        <li class="my-1">
+                            <a class="dropdown-item py-2 rounded-3 d-flex align-items-center text-muted small" href="/dashboard">
+                                <i class="bi bi-gear me-2"></i> 個人檔案後台
+                            </a>
+                        </li>
+
+                        <li><hr class="dropdown-divider opacity-50"></li>
+
+                        <li class="mt-1">
+                            <a class="dropdown-item py-2 rounded-3 bg-danger-subtle text-danger fw-bold d-flex align-items-center" href="/logout">
+                                <i class="bi bi-box-arrow-right fs-5 me-2"></i>
+                                <span>安全登出系統</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<img th:src="${note.coverImageUrl != null ? note.coverImageUrl : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200'}"
+     class="detail-cover shadow-sm" alt="Note Full Cover">
+
+<div class="container my-5 detail-page-container" style="max-width: 850px;">
+
+    <div class="mb-3">
+        <a href="/notes" class="text-decoration-none text-muted small">
+            <i class="bi bi-arrow-left me-1"></i> 返回筆記大廳
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 p-4 p-md-5 rounded-3 bg-white">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+
+            <div class="flex-grow-1 me-3">
+                <span class="badge fw-semibold px-3 py-2 fs-6 mb-2"
+                      th:classappend="${note.type.cssClass}"
+                      th:text="${note.type.displayName}">
+                    分類
+                </span>
+                <h1 class="fw-bold text-dark mb-2 lh-base" th:text="${note.title}">筆記標題</h1>
+
+                <div class="d-flex align-items-center flex-wrap text-muted fs-6 bg-light p-2 px-3 rounded-3 mb-0">
+                    <a th:href="@{/member/{id}(id=${note.user.id})}" class="d-flex align-items-center text-decoration-none text-dark fw-bold me-1 link-primary" title="前往個人主頁">
+                        <div class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle me-2"
+                             style="width: 42px; height: 42px; transition: 0.3s;"
+                             th:classappend="${note.user.currentFrame != null ? note.user.currentFrame : 'border border-info'}"
+                             th:styleappend="${note.user.currentFrame == null ? 'box-shadow: 0 0 10px rgba(13, 202, 240, 0.3);' : ''}">
+
+                            <img th:src="${note.user.currentAvatar != null ? '/images/avatars/' + note.user.currentAvatar : 'https://api.dicebear.com/7.x/identicon/svg?seed=' + #strings.toLowerCase(#strings.trim(note.user.username))}"
+                                 class="rounded-circle border border-2 border-info bg-white shadow-sm user-avatar-img-slot"
+                                 style="width: 40px; height: 40px; object-fit: cover; transition: 0.3s;">
+                        </div>
+                        <span th:text="${note.user.nickname}">admin</span>
+                    </a>
+                    <span class="text-muted mx-3">•</span>
+                    <span class="small"><i class="bi bi-calendar3 me-1"></i> 發表於：<span th:text="${#temporals.format(note.createdAt, 'yyyy-MM-dd HH:mm')}">時間</span></span>
+                    <span class="text-muted mx-3">•</span>
+                    <span class="small"><i class="bi bi-eye me-1"></i> 閱讀次數：<span th:text="${note.viewsCount}">0</span> 次</span>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <button type="button" id="likeBtn" class="btn btn-sm rounded-pill top-like-btn d-inline-flex align-items-center justify-content-center"
+                        th:classappend="${hasLiked} ? 'btn-danger' : 'btn-outline-danger'"
+                        th:disabled="${user == null}"
+                        th:onclick="sendLike([[${note.id}]])"
+                        style="height: 36px; px-3; font-size: 0.9rem;">
+                    <i id="likeIcon" class="bi" th:classappend="${hasLiked} ? 'bi-heart-fill' : 'bi-heart'"></i>
+                    <span class="ms-1">(<span class="like-count-shared" th:text="${note.likesCount}">0</span>)</span>
+                </button>
+
+                <button type="button"
+                        class="btn btn-outline-warning rounded-circle bookmark-btn d-flex align-items-center justify-content-center p-0"
+                        th:data-note-id="${note.id}"
+                        th:disabled="${user == null}"
+                        onclick="toggleBookmarkAction(this)"
+                        style="z-index: 1050; position: relative; width: 40px; height: 40px; border-width: 1px;">
+                    <i class="bi text-warning fs-5"
+                       th:classappend="${bookmarkedIds != null && #sets.contains(bookmarkedIds, note.id)} ? 'bi-star-fill' : 'bi-star'">
+                    </i>
+                </button>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center justify-content-center"
+                        th:if="${user == null || user.id != note.user.id}"
+                        th:disabled="${user == null}"
+                        data-bs-toggle="modal" data-bs-target="#reportModal"
+                        style="height: 36px; font-size: 0.9rem;">
+                    <i class="bi bi-flag me-1"></i>檢舉
+                </button>
+
+                <div class="dropdown" th:if="${user != null && user.id == note.user.id}">
+                    <button class="btn btn-link text-secondary p-0 border-0 ms-1 d-flex align-items-center" type="button" id="topAuthorMenu" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 1.5rem; height: 36px;">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-secondary-subtle" aria-labelledby="topAuthorMenu">
+                        <li>
+                            <a class="dropdown-item py-2" th:href="@{/notes/edit/{id}(id=${note.id})}">
+                                <i class="bi bi-pencil-square text-primary me-2"></i> 編輯內文
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2" href="#"
+                               th:data-note-id="${note.id}"
+                               th:data-visibility="${note.visibility}"
+                               th:data-share-token="${note.shareToken}"
+                               onclick="openShareModal(this.getAttribute('data-note-id'), this.getAttribute('data-visibility'), this.getAttribute('data-share-token'))">
+                                <i class="bi bi-shield-lock-fill text-success me-2"></i> 瀏覽權限
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item py-2 text-danger" href="#" th:onclick="'confirmDelete(' + ${note.id} + ')'">
+                                <i class="bi bi-trash3-fill me-2"></i> 移除筆記
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="text-end" th:if="${user == null}">
+            <small class="text-muted d-block mb-2">
+                <i class="bi bi-info-circle"></i> 請先登入即可參與筆記推薦、收藏與檢舉
+            </small>
+        </div>
+
+        <div class="mb-3">
+                <span th:each="tag : ${#strings.arraySplit(note.tags, ',')}"
+                      class="badge bg-secondary-subtle text-secondary me-2 px-2 py-1.5 rounded-3">
+                    #<span th:text="${tag}"></span>
+                </span>
+        </div>
+
+        <hr class="my-4">
+<!--內文-->
+        <article class="note-content mb-5" th:text="${note.content}">純文字內文</article>
+
+        <div th:if="${note.images != null && !note.images.isEmpty()}" class="mt-5 bg-light p-4 rounded-3 shadow-sm">
+            <h5 class="fw-bold text-dark mb-3">
+                <i class="bi bi-images text-primary me-2"></i> 筆記附圖說明 (<span th:text="${note.images.size()}">0</span>/5)
+            </h5>
+            <div class="row row-cols-2 row-cols-sm-3 g-3">
+                <div class="col" th:each="img : ${note.images}">
+                    <img th:src="${img.imageUrl}" class="w-100 rounded shadow-sm preview-img"
+                         alt="筆記插圖" th:onclick="openLightbox(this.src)">
+                </div>
+            </div>
+        </div>
+<!--YT影片嵌入-->
+        <div th:if="${note.youtubeVideoId != null && !note.youtubeVideoId.isEmpty()}" class="mt-5 bg-light p-4 rounded-3 shadow-sm">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-youtube text-danger me-2"></i> 線上延伸觀看導學影片</h5>
+            <div class="ratio ratio-16x9 rounded-3 overflow-hidden shadow-sm">
+                <iframe th:src="${'https://www.youtube.com/embed/' + note.youtubeVideoId}"
+                        title="YouTube video player" frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen></iframe>
+            </div>
+        </div>
+<!--附件下載-->
+        <div th:if="${note.attachmentUrl != null && !note.attachmentUrl.isEmpty()}" class="mt-5 border border-primary-subtle p-4 rounded-3 bg-primary-subtle bg-opacity-10">
+            <div class="d-flex flex-wrap justify-content-between align-items-center g-3">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-paperclip fs-2 text-primary me-3"></i>
+                    <div>
+                        <h6 class="fw-bold text-dark m-0">本文隨附參考資料</h6>
+                        <small class="text-muted" th:text="${note.attachmentFileName}">檔案名稱.pdf</small>
+                    </div>
+                </div>
+                <a th:href="${note.attachmentUrl}" target="_blank" class="btn btn-primary px-4 rounded-pill shadow-sm mt-2 mt-sm-0">
+                    <i class="bi bi-download me-1"></i> 點我前往下載附件
+                </a>
+            </div>
+        </div>
+
+        <hr class="my-5">
+
+        <div class="d-flex align-items-center justify-content-center gap-3 py-3 bg-light rounded-3 mb-4">
+            <button type="button" id="bottomLikeBtn" class="btn px-4 py-2 rounded-pill shadow-sm"
+                    th:classappend="${hasLiked} ? 'btn-danger' : 'btn-outline-danger'"
+                    th:disabled="${user == null}"
+                    th:onclick="sendLike([[${note.id}]])">
+                <i id="bottomLikeIcon" class="bi me-1" th:classappend="${hasLiked} ? 'bi-heart-fill' : 'bi-heart'"></i>
+                <span id="bottomLikeBtnText" th:text="${hasLiked} ? '取消按讚' : '喜歡這篇'">喜歡這篇</span>
+                (<span class="like-count-shared" th:text="${note.likesCount}">0</span>)
+            </button>
+
+            <button type="button" class="btn btn-outline-warning rounded-pill bookmark-btn d-inline-flex align-items-center justify-content-center px-3 py-2"
+                    th:data-note-id="${note.id}"
+                    th:disabled="${user == null}"
+                    onclick="toggleBookmarkAction(this)"
+                    style="height: 40px; gap: 6px;">
+                <i class="bi text-warning fs-5"
+                   th:classappend="${bookmarkedIds != null && #sets.contains(bookmarkedIds, note.id)} ? 'bi-star-fill' : 'bi-star'">
+                </i>
+                <span class="bottomBookmarkBtnText" th:text="${bookmarkedIds != null && #sets.contains(bookmarkedIds, note.id)} ? '取消收藏' : '點擊收藏'">點擊收藏</span>
+            </button>
+
+            <button type="button" class="btn btn-outline-secondary px-4 py-2 rounded-pill shadow-sm" onclick="copyShareLink()">
+                <i class="bi bi-share-fill me-1"></i> 分享連結
+            </button>
+        </div>
+
+        <hr class="my-5">
+<!--留言-->
+        <div class="container mt-5 mb-5" style="max-width: 800px;">
+
+            <h3 class="mb-4 d-flex align-items-center">
+            <i class="bi bi-chat-text-fill me-2 text-primary"></i> 筆記討論區
+            </h3>
+
+            <div class="card shadow-sm p-4 mb-5 position-relative">
+
+                <div th:if="${user == null}"
+                     class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
+                     style="background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); z-index: 10; border-radius: .375rem;">
+                    <p class="fw-bold text-secondary mb-2">
+                        <i class="bi bi-lock-fill me-1"></i> 您必須先登入，才能參與筆記討論。
+                    </p>
+                    <button type="button"
+                            onclick="window.location.href='/login?target=' + encodeURIComponent(window.location.href)"
+                            class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm">
+                        一鍵登入
+                    </button>
+                </div>
+
+                <form id="commentForm">
+                    <div class="d-flex gap-3 align-items-center">
+
+                        <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+
+                            <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                                 style="width: 52px; height: 52px; font-size: 24px;"
+                                 th:if="${user == null}">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+
+                            <div class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle"
+                                 th:if="${user != null}"
+                                 style="width: 56px; height: 56px; transition: 0.3s;"
+                                 th:classappend="${equippedFrame != null ? equippedFrame.styleValue : 'border border-info'}"
+                                 th:styleappend="${equippedFrame == null ? 'box-shadow: 0 0 12px rgba(13, 202, 240, 0.3);' : ''}">
+
+                                <img th:src="${equippedAvatar != null ? '/images/avatars/' + equippedAvatar.styleValue : 'https://api.dicebear.com/7.x/identicon/svg?seed=' + #strings.toLowerCase(#strings.trim(user.username))}"
+                                     class="rounded-circle border border-2 border-info bg-white shadow-sm user-avatar-img-slot"
+                                     style="width: 54px; height: 54px; object-fit: cover; transition: 0.3s;">
+                            </div>
+                        </div>
+
+                        <div class="flex-grow-1 position-relative">
+                            <textarea id="commentInput"
+                                      class="form-control pe-5"
+                                      rows="3"
+                                      placeholder="寫下你的回饋或討論吧..."
+                                      maxlength="300"
+                                      th:disabled="${user == null}"
+                                      style="resize: none;"></textarea>
+                            <div class="position-absolute bottom-0 end-0 me-2 mb-1">
+                                <small id="charCounter" class="text-muted" style="font-size: 0.75rem;">300 / 300</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-end mt-3">
+                        <button type="submit"
+                                id="submitCommentBtn"
+                                class="btn btn-success btn-sm rounded-pill px-4"
+                                th:disabled="${user == null}">
+                            送出評論
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="commentTower" th:data-note-id="${note.id}" class="list-group list-group-flush shadow-sm rounded">
+            </div>
+
+        </div>
+
+        <div class="text-center">
+            <a href="/notes" class="btn btn-outline-secondary px-4 rounded-pill">回大廳看其他筆記</a>
+        </div>
+
+    </div>
+</div>
+
+<!--圖片預覽-->
+<div id="lightboxOverlay" class="lightbox-overlay" onclick="closeLightbox()">
+    <img id="lightboxImg" class="lightbox-img" src="" alt="放大預覽圖">
+</div>
+
+<!--瀏覽權限設定-->
+<div class="modal fade" id="shareAuthModal" data-bs-backdrop="static" tabindex="-1" aria-labelledby="shareAuthModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title fw-bold text-dark" id="shareAuthModalLabel">⚙️ 筆記瀏覽權限管理</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <input type="hidden" id="modalNoteId" value="">
+
+                <div class="mb-4">
+                    <span id="badgePublic" class="badge rounded-pill bg-secondary px-3 py-2 mx-1 opacity-50">🌐 完全公開</span>
+                    <span id="badgeShared" class="badge rounded-pill bg-secondary px-3 py-2 mx-1 opacity-50">🔗 加密分享</span>
+                    <span id="badgePrivate" class="badge rounded-pill bg-secondary px-3 py-2 mx-1 opacity-50">🔒 僅限自己</span>
+                </div>
+
+                <hr class="text-black-50 mb-4">
+
+                <div class="d-flex flex-column gap-3 align-items-center">
+
+                    <button type="button" class="btn btn-outline-success fw-bold rounded-pill w-75 p-2" onclick="changeAuthAction('PUBLIC')">
+                        <i class="bi bi-globe2 me-2"></i> 推送到大廳（完全公開）
+                    </button>
+
+                    <button type="button" class="btn btn-outline-info text-dark fw-bold rounded-pill w-75 p-2" onclick="changeAuthAction('SHARED')">
+                        <i class="bi bi-link-45deg me-2"></i> 開啟 / 管理加密分享連結
+                    </button>
+
+                    <div id="modalSharedLinkArea" class="w-100 px-3 d-none">
+                        <div class="input-group my-2 shadow-sm rounded-3 overflow-hidden border">
+                            <input type="text" id="shareLinkInput" class="form-control border-0 bg-light text-secondary small" readonly>
+                            <button class="btn btn-dark border-0 px-3 fw-bold" type="button" onclick="copySharedLink()">
+                                <i class="bi bi-copy"></i>
+                            </button>
+                        </div>
+                        <p class="text-muted" style="font-size: 0.75rem;">拿到此連結的人不需登入即可旁聽觀看。</p>
+                    </div>
+
+                    <button type="button" class="btn btn-outline-danger fw-bold rounded-pill w-75 p-2" onclick="changeAuthAction('PRIVATE')">
+                        <i class="bi bi-shield-lock-fill me-2"></i> 收回權限（僅限自己）
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--檢舉表單-->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportModalLabel"><i class="bi bi-flag-fill text-danger me-2"></i>檢舉此筆記</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="reportForm">
+                    <input type="hidden" id="reportTargetId" th:value="${note.id}">
+
+                    <p class="text-muted small">請選擇符合此筆記違規情況的選項，我們會盡快審查。</p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">違規類別</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="reasonCategory" id="reasonPlagiarism" value="PLAGIARISM" checked>
+                            <label class="form-check-label" for="reasonPlagiarism">
+                                抄襲、侵權（非本人撰寫、未獲授權轉載）
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="reasonCategory" id="reasonSpam" value="SPAM">
+                            <label class="form-check-label" for="reasonSpam">
+                                垃圾內容與廣告（商業廣告、洗板、無意義內容）
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="reasonCategory" id="reasonInappropriate" value="INAPPROPRIATE">
+                            <label class="form-check-label" for="reasonInappropriate">
+                                不當或成人內容（色情、暴力、令人不適之圖文）
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="reasonCategory" id="reasonDuplicate" value="DUPLICATE">
+                            <label class="form-check-label" for="reasonDuplicate">
+                                重複上傳（相同筆記洗板）
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reportDescription" class="form-label fw-bold">補充說明（選填）</label>
+                        <textarea class="form-control" id="reportDescription" rows="3" placeholder="請提供更多詳細資訊以利管理員審查..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" id="submitReportBtn" class="btn btn-sm btn-danger px-3">提交檢舉</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--右下角檢舉提交回應-->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1055;">
+    <div id="reportToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-check-circle-fill me-2"></i>感謝檢舉！檢舉回報已送交管理員審查。
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-toast="dismiss" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // 燈箱控制組
+    const overlay = document.getElementById('lightboxOverlay');
+    const lightboxImg = document.getElementById('lightboxImg');
+
+    function openLightbox(src) {
+        lightboxImg.src = src;
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+        overlay.style.display = 'none';
+        lightboxImg.src = '';
+        document.body.style.overflow = 'auto';
+    }
+
+    // 移除安全確認與路徑跳轉
+    function confirmDelete(noteId) {
+        if (confirm("警告：您確定要永久移除這篇筆記嗎？\n此操作將連同所有插圖、讚數紀錄一起抹除且無法復原！")) {
+            window.location.href = "/notes/delete/" + noteId;
+        }
+    }
+
+    // 非同步點讚（同步更新頂底兩端的愛心與計數）
+    function sendLike(noteId) {
+        const topBtn = document.getElementById('likeBtn');
+        const topIcon = document.getElementById('likeIcon');
+
+        const bottomBtn = document.getElementById('bottomLikeBtn');
+        const bottomIcon = document.getElementById('bottomLikeIcon');
+        const bottomBtnText = document.getElementById('bottomLikeBtnText');
+
+        const countTexts = document.querySelectorAll('.like-count-shared');
+
+        const formData = new FormData();
+        formData.append('id', noteId);
+
+        fetch('/notes/like', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                countTexts.forEach(txt => txt.innerText = data.newLikesCount);
+
+                if (data.isLiked) {
+                    topBtn.className = "btn btn-sm px-3 rounded-pill btn-danger top-like-btn";
+                    topIcon.className = "bi bi-heart-fill";
+
+                    bottomBtn.className = "btn px-4 py-2 rounded-pill shadow-sm btn-danger d-inline-flex align-items-center";
+                    bottomIcon.className = "bi bi-heart-fill me-1";
+                    if(bottomBtnText) bottomBtnText.innerText = "取消按讚";
+                } else {
+                    topBtn.className = "btn btn-sm px-3 rounded-pill btn-outline-danger top-like-btn";
+                    topIcon.className = "bi bi-heart";
+
+                    bottomBtn.className = "btn px-4 py-2 rounded-pill shadow-sm btn-outline-danger d-inline-flex align-items-center";
+                    bottomIcon.className = "bi bi-heart me-1";
+                    if(bottomBtnText) bottomBtnText.innerText = "喜歡這篇";
+                }
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('網路連線異常，請稍後再試！');
+        });
+    }
+
+    // 【大廳/詳細頁】非同步收藏控制器
+    function toggleBookmarkAction(buttonElement) {
+        // 向上尋找整頁的大貨櫃容器，確保能同時抓到頂部、底部的所有按鈕元件
+        const container = buttonElement.closest('.detail-page-container');
+        if (!container) return;
+
+        // 拔出綁在按鈕身上的筆記 ID
+        const noteId = buttonElement.getAttribute('data-note-id');
+        if (!noteId || noteId === "null") return;
+
+        const formData = new FormData();
+        formData.append('noteId', noteId);
+
+        fetch('/notes/api/bookmark', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 抓出整頁容器中所有收藏 <i> 標籤與底部文字欄位
+                const allStars = container.querySelectorAll('.bookmark-btn .bi');
+                const textLabel = container.querySelector('.bottomLikeBtnText');
+
+                if (data.isBookmarked) {
+                    allStars.forEach(star => {
+                        star.classList.remove('bi-star');
+                        star.classList.add('bi-star-fill');
+                    });
+                    if (textLabel) textLabel.textContent = '取消收藏';
+
+                    // 點擊放大微特效回饋
+                    buttonElement.style.transform = "scale(1.15)";
+                    setTimeout(() => buttonElement.style.transform = "scale(1)", 200);
+                } else {
+                    allStars.forEach(star => {
+                        star.classList.remove('bi-star-fill');
+                        star.classList.add('bi-star');
+                    });
+                    if (textLabel) textLabel.textContent = '點擊收藏';
+                }
+            } else {
+                alert("提示：" + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('系統傳輸失敗，請檢查網路或確認後端服務是否正常！');
+        });
+    }
+
+    // 一鍵分享連結（相容 HTTP 區網與 HTTPS 全環境版）
+    function copyShareLink() {
+        const currentUrl = window.location.href;
+
+        // 優先如果支援新剪貼簿
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(currentUrl).then(() => {
+                alert("筆記網址已成功複製到剪貼簿！快去傳給朋友吧！");
+            }).catch(err => {
+                console.error('複製失敗，切換方案:', err);
+                fallbackCopyText(currentUrl); // 轉入保底
+            });
+        } else {
+            // 備用：非安全環境（如 http://192.168.x.x）自動觸發傳統複製
+            fallbackCopyText(currentUrl);
+        }
+    }
+
+    // 傳統文字複製
+    function fallbackCopyText(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+
+        // 讓輸入框在畫面上完全看不見，不破壞排版
+        textArea.style.position = "fixed";
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.width = "2em";
+        textArea.style.height = "2em";
+        textArea.style.padding = "0";
+        textArea.style.border = "none";
+        textArea.style.outline = "none";
+        textArea.style.boxShadow = "none";
+        textArea.style.background = "transparent";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                alert("筆記網址已成功複製到剪貼簿！");
+            } else {
+                alert("複製失敗，請手動複製網址列。");
+            }
+        } catch (err) {
+            console.error('複製失敗:', err);
+            alert("瀏覽器拒絕複製請求，請直接手動複製網址列。");
+        }
+
+        document.body.removeChild(textArea); // 功成身退，物理移除
+    }
+
+    // 初始化彈窗，點亮當前筆記的權限狀態
+    function openShareModal(noteId, currentVisibility, existingToken) {
+        document.getElementById('modalNoteId').value = noteId;
+
+        const bPublic = document.getElementById('badgePublic');
+        const bShared = document.getElementById('badgeShared');
+        const bPrivate = document.getElementById('badgePrivate');
+        const linkArea = document.getElementById('modalSharedLinkArea');
+        const linkInput = document.getElementById('shareLinkInput');
+
+        [bPublic, bShared, bPrivate].forEach(b => {
+            b.className = "badge rounded-pill bg-secondary px-3 py-2 mx-1 opacity-50";
+        });
+        linkArea.classList.add('d-none');
+
+        if (currentVisibility === 'PUBLIC') {
+            bPublic.className = "badge rounded-pill bg-success px-3 py-2 mx-1 shadow";
+        } else if (existingToken && existingToken !== 'null' && existingToken.trim() !== '') {
+            bShared.className = "badge rounded-pill bg-info text-dark px-3 py-2 mx-1 shadow";
+            linkArea.classList.remove('d-none');
+            linkInput.value = window.location.origin + "/notes/share/" + existingToken;
+        } else {
+            bPrivate.className = "badge rounded-pill bg-danger px-3 py-2 mx-1 shadow";
+        }
+
+        const myModal = new bootstrap.Modal(document.getElementById('shareAuthModal'));
+        myModal.show();
+    }
+
+    // 權限變更執行
+    function changeAuthAction(targetAuth) {
+        const noteId = document.getElementById('modalNoteId').value;
+        const formData = new FormData();
+        formData.append('id', noteId);
+        formData.append('visibility', targetAuth);
+
+        fetch('/notes/api/updateVisibility', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (targetAuth === 'PUBLIC') {
+                    alert("權限已變更為【完全公開】！此筆記已在大廳顯示且其他人皆看的見");
+                } else if (targetAuth === 'SHARED') {
+                    alert("已成功啟用【半公開加密連結】！請複製下方生成的網址分享給特定對象。");
+                } else {
+                    alert("已成功變更為【僅限自己】！僅限自己看的見");
+                }
+                window.location.reload();
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // 一鍵複製功能
+    function copySharedLink() {
+        const linkInput = document.getElementById('shareLinkInput');
+        linkInput.select();
+        linkInput.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(linkInput.value).then(() => {
+            alert("複製成功！快把這個專屬連結貼給你的朋友吧！");
+        }).catch(err => console.error('複製失敗:', err));
+    }
+
+    // 檢查權限失效重導向
+    function checkSharedAlert() {
+        const alertFlag = "[[${sharedAlert}]]";
+        if (alertFlag === "PRIVATE_LOCK" || window.location.search.includes("sharedAlert=PRIVATE_LOCK")) {
+            setTimeout(() => {
+                alert("權限失效通知：\n\n您所點擊的這篇筆記，已被原作者關閉半公開分享、並重新設為「私人不公開」狀態囉！系統已為您自動平安重導向回大廳。");
+            }, 300);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        checkSharedAlert();
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const commentInput = document.getElementById("commentInput");
+        const charCounter = document.getElementById("charCounter");
+
+        // 未登入時 Thymeleaf 不會輸出輸入框，因此需先確認元素存在。
+        if (commentInput && charCounter) {
+            commentInput.addEventListener("input", function () {
+                const maxLength = 300;
+                const currentLength = commentInput.value.length;
+                const remaining = maxLength - currentLength;
+
+                // 1. 動態更新數字（例如：285 / 300）
+                charCounter.textContent = `${remaining} / ${maxLength}`;
+
+                // 2. 當字數扣到 0 的時候，瞬間觸發視覺變色
+                if (remaining <= 0) {
+                    charCounter.classList.remove("text-muted");
+                    charCounter.classList.add("text-danger", "fw-bold"); // 變紅、加粗
+                } else {
+                    charCounter.classList.remove("text-danger", "fw-bold");
+                    charCounter.classList.add("text-muted"); // 織回灰色
+                }
+            });
+        }
+    });
+    // 檢舉非同步提交控制器
+document.addEventListener("DOMContentLoaded", function () {
+    const submitReportBtn = document.getElementById("submitReportBtn");
+
+    if (submitReportBtn) {
+        submitReportBtn.addEventListener("click", function () {
+            const reportTargetId = document.getElementById("reportTargetId").value;
+            const description = document.getElementById("reportDescription").value;
+
+            const selectedRadio = document.querySelector('input[name="reasonCategory"]:checked');
+            if (!selectedRadio) {
+                alert("請選擇違規類別！");
+                return;
+            }
+            const reasonCategory = selectedRadio.value;
+
+            // 1. 封裝要傳給後端的 DTO 資料
+            const reportData = {
+                targetId: parseInt(reportTargetId),
+                targetType: "NOTE",
+                reasonCategory: reasonCategory,
+                description: description
+            };
+
+            // 2. 禁用按鈕防止重複點擊
+            submitReportBtn.disabled = true;
+
+            // 3. 執行非同步傳送
+            fetch('/notes/api/report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(reportData)
+            })
+            .then(response => {
+                // 將後端傳回的結果轉成 JSON 物件
+                return response.json();
+            })
+            .then(data => {
+                console.log("後端回傳結果：", data); // 追蹤後端給的回應
+
+                if (data.success) {
+                    // 成功：隱藏 Modal 表單
+                    const reportModalEl = document.getElementById('reportModal');
+                    const modalInstance = bootstrap.Modal.getOrCreateInstance(reportModalEl);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+
+                    // 重設表單
+                    document.getElementById("reportForm").reset();
+
+                    // 跳出右下角綠色 Toast 通知
+                    const reportToastEl = document.getElementById('reportToast');
+                    const toastInstance = bootstrap.Toast.getOrCreateInstance(reportToastEl);
+                    if (toastInstance) {
+                        toastInstance.show();
+                    }
+                } else {
+                    // 後端回傳 success: false (例如未登入)
+                    alert("提示：" + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Fetch 發生錯誤:', error);
+                alert('傳輸失敗，錯誤原因：' + error.message);
+            })
+            .finally(() => {
+                // 恢復按鈕可用狀態
+                submitReportBtn.disabled = false;
+            });
+        });
+    }
+});
+</script>
+<script th:src="@{/js/comment.js}"></script>
+</body>
+</html>

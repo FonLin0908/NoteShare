@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>NoteShare 榮譽殿堂 - 使用者後台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" th:href="@{/css/gamer-custom.css}">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --sidebar-bg: #1a1a1a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #aaaaaa;
+            --accent-color: #00bcd4; /* 電競藍 */
+            --success-color: #4caf50; /* 解鎖綠 */
+            --locked-color: #f44336; /* 未解鎖紅 */
+        }
+
+        body { background-color: var(--bg-color); color: var(--text-primary); }
+
+        /* sidebar 樣式 */
+        .sidebar .nav-link { color: var(--text-secondary); transition: color 0.3s ease; }
+        .sidebar .nav-link.active { background-color: var(--accent-color); color: #fff; border-radius: 8px; font-weight: bold; }
+        .sidebar .nav-link:hover:not(.active) { color: #fff; background-color: #333; border-radius: 8px; }
+        .sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid #333;
+            padding-top: 2rem;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        /* 卡片與容器樣式 */
+        .dashboard-card { background-color: var(--card-bg); border-radius: 12px; border: 1px solid #333; transition: transform 0.2s ease, border-color 0.2s ease; }
+        .dashboard-card:hover { transform: translateY(-3px); border-color: #444; }
+
+        /* 經驗值進度條 */
+        .progress-bar-gamer {
+            background-image: linear-gradient(
+                45deg,
+                var(--accent-color) 25%,
+                #fff 25%,
+                #fff 50%,
+                var(--accent-color) 50%,
+                var(--accent-color) 75%,
+                #fff 75%,
+                #fff
+            );
+            background-size: 20px 20px;
+            animation: move-stripes 1s linear infinite;
+        }
+
+        @keyframes move-stripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 0; }
+        }
+
+        /* 外觀解鎖牆 */
+        .avatar-card {
+            border-width: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .avatar-card .avatar-locked-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        .avatar-card.unlocked .avatar-locked-overlay {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .avatar-card.unlocked:hover {
+            box-shadow: 0 0 15px var(--success-color);
+            border-color: var(--success-color);
+        }
+
+        .avatar-card.locked:hover {
+            box-shadow: 0 0 15px var(--locked-color);
+            border-color: var(--locked-color);
+        }
+
+        .avatar-card img {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+
+        .avatar-card:hover img {
+            transform: scale(1.1);
+        }
+        @keyframes blink {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.05); box-shadow: 0 0 10px rgba(220, 53, 69, 0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .blink-animation {
+            animation: blink 1.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse p-4">
+            <div class="text-white fw-bold fs-4 mb-5 px-2 text-center text-md-start">
+                <i class="bi bi-controller me-2"></i>NoteShare 殿堂
+            </div>
+            <ul class="nav flex-column gap-3">
+                <li class="nav-item">
+                    <a href="#" class="nav-link sidebar-btn"
+                       th:classappend="${successMessage == null && errorMessage == null} ? 'active' : ''"
+                       data-page="analytics">
+                        <i class="bi bi-lightning-charge me-2"></i>數據分析
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link sidebar-btn" data-page="profile">
+                        <i class="bi bi-scroll me-2"></i>個人預覽
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link sidebar-btn"
+                       th:classappend="${successMessage != null || errorMessage != null} ? 'active' : ''"
+                       data-page="update-password">
+                        <i class="bi bi-key me-2"></i>更改密碼
+                    </a>
+                </li>
+                <li class="nav-item mt-5">
+                    <a class="nav-link text-info" th:href="@{/}">
+                        <i class="bi bi-arrow-left-square me-2"></i>返回社群
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <main class="col-md-9 col-lg-10 px-md-5 py-5">
+            <div class="dashboard-content-wrapper">
+
+                <div id="analytics-section-wrapper"
+                     th:class="${successMessage != null || errorMessage != null} ? 'd-none' : ''">
+                    <div th:replace="~{dashboard/analytics :: dashboard-home}"></div>
+                </div>
+
+                <div id="profile-section-wrapper" class="d-none">
+                    <div th:replace="~{dashboard/profile :: user-profile(user=${user}, maxExp=${maxExp}, expPercentage=${expPercentage}, dailyNote=${dailyNote}, dailyComment=${dailyComment})}"></div>
+                </div>
+
+                <div id="quests-section-wrapper" class="d-none">
+                    <button class="btn btn-outline-secondary btn-sm mb-4 back-to-profile-btn"><i class="bi bi-arrow-left me-1"></i>返回個人預覽</button>
+                    <div th:replace="~{dashboard/quests :: quests-section(user=${user})}"></div>
+                </div>
+
+                <div id="shop-section-wrapper" class="d-none">
+                    <button class="btn btn-outline-secondary btn-sm mb-4 back-to-profile-btn"><i class="bi bi-arrow-left me-1"></i>返回個人預覽</button>
+                    <div th:replace="~{dashboard/shop :: shop-section(user=${user})}"></div>
+                </div>
+
+                <div id="wardrobe-section-wrapper" class="d-none">
+                    <button class="btn btn-outline-secondary btn-sm mb-4 back-to-profile-btn">
+                        <i class="bi bi-arrow-left me-1"></i>返回個人預覽
+                    </button>
+                    <div th:replace="~{dashboard/wardrobe :: wardrobe-section}"></div>
+                </div>
+
+                <div id="medals-section-wrapper" class="d-none">
+                    <button class="btn btn-outline-secondary btn-sm mb-4 back-to-profile-btn"><i class="bi bi-arrow-left me-1"></i>返回個人預覽</button>
+                    <div th:replace="~{dashboard/achievements :: achievements-section}"></div>
+                </div>
+
+                <div id="chronicle-section-wrapper" class="d-none">
+                    <button class="btn btn-outline-secondary btn-sm mb-4 back-to-profile-btn"><i class="bi bi-arrow-left me-1"></i>返回個人預覽</button>
+                    <div th:replace="~{dashboard/chronicle :: chronicle-section}"></div>
+                </div>
+
+                <div id="guide-section-wrapper" class="d-none">
+                    <button class="btn btn-outline-secondary btn-sm mb-4 back-to-profile-btn"><i class="bi bi-arrow-left me-1"></i>返回個人預覽</button>
+                    <div th:replace="~{dashboard/guide :: guide-section}"></div>
+                </div>
+
+                <div th:replace="~{dashboard/update-password :: update-password}"></div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const currentUsername = /*[[${#strings.toLowerCase(#strings.trim(user.username))}]]*/ 'default_user';
+
+    // 🟢 1. 側邊導航欄：分頁異步切換引擎
+    document.querySelectorAll('.sidebar-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            const page = this.getAttribute('data-page');
+
+            ['analytics', 'profile', 'quests', 'shop', 'medals', 'chronicle', 'guide', 'update-password', 'wardrobe'].forEach(p => {
+                const wrapper = document.getElementById(`${p}-section-wrapper`);
+                if (wrapper) wrapper.classList.add('d-none');
+            });
+
+            const targetWrapper = document.getElementById(`${page}-section-wrapper`);
+            if (targetWrapper) targetWrapper.classList.remove('d-none');
+        });
+    });
+
+    // 🟢 2. 安全攔截盾：密碼一致性驗證
+    function validateFrontendPassword() {
+        const newPwd = document.getElementById('newPassword').value;
+        const confirmPwd = document.getElementById('confirmPassword').value;
+        const errorDiv = document.getElementById('passwordMismatchError');
+
+        if (newPwd !== confirmPwd) {
+            errorDiv.classList.remove('d-none');
+            return false;
+        }
+        errorDiv.classList.add('d-none');
+        return true;
+    }
+
+    // 🟢 3. 冒險者大廳：六聯彈卡片「傳送門」跳轉
+    document.querySelectorAll('.portal-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const target = this.getAttribute('data-target');
+            document.getElementById('profile-section-wrapper').classList.add('d-none');
+            const targetWrapper = document.getElementById(`${target}-section-wrapper`);
+            if (targetWrapper) targetWrapper.classList.remove('d-none');
+        });
+    });
+
+    // 🟢 4. 各大副本分頁：「返回個人預覽」
+    document.addEventListener('click', function(e) {
+        const backBtn = e.target.closest('.back-to-profile-btn');
+        if (!backBtn) return;
+
+        e.preventDefault();
+        ['analytics', 'profile', 'quests', 'shop', 'medals', 'chronicle', 'guide', 'update-password', 'wardrobe'].forEach(p => {
+            const wrapper = document.getElementById(`${p}-section-wrapper`);
+            if (wrapper) wrapper.classList.add('d-none');
+        });
+
+        const profileWrapper = document.getElementById('profile-section-wrapper');
+        if (profileWrapper) profileWrapper.classList.remove('d-none');
+    });
+
+    // 🟢 5. 補給黑市：非同步購買與外觀解鎖（保留更衣室 Filter）
+    document.addEventListener('click', function(e) {
+        const buyBtn = e.target.closest('.buy-asset-btn');
+        if (!buyBtn) return;
+
+        const assetType = buyBtn.getAttribute('data-asset');
+        const price = parseInt(buyBtn.getAttribute('data-price'));
+
+        if (!confirm(`確定要消耗 🪙 ${price} 金幣解鎖這項外觀嗎？`)) return;
+
+        buyBtn.disabled = true;
+        buyBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>交易中...`;
+
+        // 記錄當前更衣室 Filter
+        const currentActiveFilterBtn = document.querySelector('.wardrobe-filter-btn.active');
+        const currentWardrobeFilter = currentActiveFilterBtn ? currentActiveFilterBtn.getAttribute('data-filter') : 'ALL';
+
+        fetch('/api/shop/buy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetType: assetType })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+
+                const shopCard = buyBtn.closest('.avatar-card');
+                if (shopCard) {
+                    shopCard.classList.remove('locked', 'border-secondary');
+                    shopCard.classList.add('unlocked', 'border-success');
+                    const overlay = shopCard.querySelector('.avatar-locked-overlay');
+                    if (overlay) overlay.style.display = 'none';
+                }
+
+                buyBtn.className = "btn btn-success btn-sm w-100 fw-bold disabled";
+                buyBtn.innerHTML = `<i class="bi bi-check2-circle me-1"></i> 權限已擁有`;
+                buyBtn.removeAttribute('data-asset');
+
+                // 更新金幣顯示
+                const coinTextEl = document.querySelector('.bi-coin')?.parentElement;
+                if (coinTextEl) {
+                    let match = coinTextEl.innerHTML.match(/(-?\d+[\d,]*)/);
+                    if (match) {
+                        let currentCoins = parseInt(match[1].replace(/,/g, ''));
+                        let nextCoins = currentCoins - price;
+                        coinTextEl.innerHTML = `<i class="bi bi-coin text-warning me-1"></i>金幣餘額：<span>${nextCoins.toLocaleString()}</span> Coin`;
+                    }
+                }
+
+                // 局部刷新更衣室並還原 Filter
+                fetch('/dashboard/refresh-wardrobe?t=' + Date.now(), { credentials: 'same-origin' })
+                    .then(res => res.text())
+                    .then(htmlFragment => {
+                        const currentWardrobe = document.getElementById('wardrobe-section-wrapper');
+                        if (currentWardrobe) {
+                            const backBtnHtml = '<button class="btn btn-outline-secondary btn-sm mb-4 back-to-profile-btn"><i class="bi bi-arrow-left me-1"></i>返回個人預覽</button>';
+                            currentWardrobe.innerHTML = backBtnHtml + htmlFragment;
+
+                            if (currentWardrobeFilter && currentWardrobeFilter !== 'ALL') {
+                                const targetFilterBtn = currentWardrobe.querySelector(`.wardrobe-filter-btn[data-filter="${currentWardrobeFilter}"]`);
+                                if (targetFilterBtn) {
+                                    currentWardrobe.querySelectorAll('.wardrobe-filter-btn').forEach(b => {
+                                        b.className = "btn btn-sm text-secondary px-3 fw-bold wardrobe-filter-btn";
+                                    });
+                                    targetFilterBtn.className = "btn btn-sm btn-warning text-dark px-3 fw-bold wardrobe-filter-btn active";
+
+                                    currentWardrobe.querySelectorAll('.wardrobe-item-card-item').forEach(card => {
+                                        const cardType = card.getAttribute('data-type');
+                                        card.style.display = (cardType === currentWardrobeFilter) ? 'block' : 'none';
+                                    });
+                                }
+                            }
+                        }
+                    })
+                    .catch(err => console.error("🚨 更衣室背景刷新失敗:", err));
+
+            } else {
+                alert("🛡️ 黑市防禦提示: " + data.message);
+                buyBtn.disabled = false;
+                buyBtn.innerHTML = `💥 消耗金幣兌換`;
+            }
+        })
+        .catch(error => {
+            console.error("🚨 交易失敗:", error);
+            alert("🌐 交易通道斷線，請檢查主機連線！");
+            buyBtn.disabled = false;
+            buyBtn.innerHTML = `💥 消耗金幣兌換`;
+        });
+    });
+
+    // 🟢 6. 動態外觀穿脫引擎（保留當前 Filter 分類狀態）
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.equip-asset-btn');
+        if (!btn) return;
+
+        const assetType = btn.getAttribute('data-asset');
+        const category = btn.getAttribute('data-category');
+        const action = btn.getAttribute('data-action'); // EQUIP 或 REMOVE
+
+        // 🎯 關鍵步驟 1：先記錄玩家目前停留在哪一個分類 (ALL / FRAME / IMAGE)
+        const currentActiveFilterBtn = document.querySelector('.wardrobe-filter-btn.active');
+        const currentFilter = currentActiveFilterBtn ? currentActiveFilterBtn.getAttribute('data-filter') : 'ALL';
+
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>同步中...`;
+
+        fetch('/api/shop/equip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetType: assetType, category: category, action: action })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+
+                // 大廳實時外觀套用
+                const lobbyAvatarFrame = document.querySelector('.avatar-frame');
+                const lobbyAvatarImg = document.querySelector('.user-avatar-img-slot');
+
+                if (category === 'FRAME' && lobbyAvatarFrame) {
+                    lobbyAvatarFrame.className = "avatar-frame me-4 d-flex align-items-center justify-content-center bg-dark rounded-circle";
+                    if (action === 'EQUIP' && data.styleValue) {
+                        lobbyAvatarFrame.classList.add(data.styleValue);
+                    } else {
+                        lobbyAvatarFrame.classList.add('border', 'border-info');
+                    }
+                }
+                else if (category === 'IMAGE' && lobbyAvatarImg) {
+                    if (action === 'EQUIP' && data.styleValue) {
+                        lobbyAvatarImg.src = '/images/avatars/' + data.styleValue;
+                    } else {
+                        lobbyAvatarImg.src = 'https://api.dicebear.com/7.x/identicon/svg?seed=' + currentUsername;
+                    }
+                }
+
+                // 重新載入更衣室狀態
+                fetch('/dashboard/refresh-wardrobe?t=' + Date.now(), { credentials: 'same-origin' })
+                    .then(res => res.text())
+                    .then(htmlFragment => {
+                        const currentWardrobe = document.getElementById('wardrobe-section-wrapper');
+                        if (currentWardrobe) {
+                            const backBtnHtml = '<button class="btn btn-outline-secondary btn-sm mb-4 back-to-profile-btn"><i class="bi bi-arrow-left me-1"></i>返回個人預覽</button>';
+                            currentWardrobe.innerHTML = backBtnHtml + htmlFragment;
+
+                            // 🎯 關鍵步驟 2：HTML 重新渲染後，自動還原先前的 Filter 分類與高亮按鈕
+                            if (currentFilter && currentFilter !== 'ALL') {
+                                const targetFilterBtn = currentWardrobe.querySelector(`.wardrobe-filter-btn[data-filter="${currentFilter}"]`);
+                                if (targetFilterBtn) {
+                                    currentWardrobe.querySelectorAll('.wardrobe-filter-btn').forEach(b => {
+                                        b.className = "btn btn-sm text-secondary px-3 fw-bold wardrobe-filter-btn";
+                                    });
+                                    targetFilterBtn.className = "btn btn-sm btn-warning text-dark px-3 fw-bold wardrobe-filter-btn active";
+
+                                    currentWardrobe.querySelectorAll('.wardrobe-item-card-item').forEach(card => {
+                                        const cardType = card.getAttribute('data-type');
+                                        card.style.display = (cardType === currentFilter) ? 'block' : 'none';
+                                    });
+                                }
+                            }
+                        }
+                    })
+                    .catch(err => console.error("🚨 更衣室按鈕同步失敗:", err));
+
+            } else {
+                alert("🛡️ 更衣室提示: " + data.message);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error("🚨 換裝失敗:", error);
+            alert("🌐 外觀衣帽間連線中斷！");
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    });
+
+    // 🟢 7. 自動定位導航錨點
+    document.addEventListener("DOMContentLoaded", function() {
+        if (window.location.hash === "#wardrobe") {
+            const profileWrapper = document.getElementById('profile-section-wrapper');
+            if (profileWrapper) profileWrapper.classList.add('d-none');
+
+            const wardrobeWrapper = document.getElementById('wardrobe-section-wrapper');
+            if (wardrobeWrapper) wardrobeWrapper.classList.remove('d-none');
+
+            history.replaceState(null, null, ' ');
+        }
+    });
+
+    // 🟢 8. Chart.js 數據視覺化
+    let noteLikesCount = [[${noteLikes != null ? noteLikes : 0}]];
+    let commentLikesCount = [[${commentLikes != null ? commentLikes : 0}]];
+    let hasData = (noteLikesCount > 0 || commentLikesCount > 0);
+    let chartData = hasData ? [noteLikesCount, commentLikesCount] : [1, 1];
+    let chartLabels = hasData ? ['筆記獲讚', '留言獲讚'] : ['無數據', '無數據'];
+
+    const ctx = document.getElementById('influenceChart');
+    if (ctx) {
+        new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    data: chartData,
+                    backgroundColor: ['#00bcd4', '#4caf50'],
+                    borderColor: '#1e1e1e',
+                    borderWidth: 3,
+                    hoverOffset: 10
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    let weeklyLabels = [[${chartLabels}]];
+    let noteTrendData = [[${weeklyNotes}]];
+    let commentTrendData = [[${weeklyComments}]];
+
+    const trendCtx = document.getElementById('trendChart');
+    if (trendCtx) {
+        new Chart(trendCtx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: weeklyLabels,
+                datasets: [
+                    { label: '發表筆記', data: noteTrendData, borderColor: '#00bcd4', backgroundColor: 'rgba(0, 188, 212, 0.1)', borderWidth: 3, tension: 0.3 },
+                    { label: '發表留言', data: commentTrendData, borderColor: '#4caf50', backgroundColor: 'rgba(76, 175, 80, 0.1)', borderWidth: 3, tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { grid: { color: '#2d2d2d' } }, y: { grid: { color: '#2d2d2d' }, beginAtZero: true } }
+            }
+        });
+    }
+
+    // 🟢 9. 任務公告欄：領取獎勵
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.claim-reward-btn');
+        if (!btn) return;
+
+        const progressId = btn.getAttribute('data-id');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>獎勵結算中...`;
+
+        fetch('/api/quests/claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ progressId: parseInt(progressId) })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                btn.className = "btn btn-secondary w-100 py-2 fw-bold disabled";
+                btn.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>獎勵已領取`;
+
+                const questCard = btn.closest('.card');
+                if (questCard) questCard.style.opacity = "0.75";
+
+                // 同步更新大廳數據
+                fetch('/dashboard?t=' + Date.now(), { credentials: 'same-origin' })
+                    .then(res => res.text())
+                    .then(htmlText => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(htmlText, 'text/html');
+
+                        const freshProfile = doc.getElementById('profile-section-wrapper');
+                        const currentProfile = document.getElementById('profile-section-wrapper');
+                        if (freshProfile && currentProfile) {
+                            const freshCoins = freshProfile.querySelector('.bi-coin')?.parentElement;
+                            const currentCoins = currentProfile.querySelector('.bi-coin')?.parentElement;
+                            if (freshCoins && currentCoins) currentCoins.innerHTML = freshCoins.innerHTML;
+
+                            const freshLv = freshProfile.querySelector('.badge.bg-primary, .badge.bg-info');
+                            const currentLv = currentProfile.querySelector('.badge.bg-primary, .badge.bg-info');
+                            if (freshLv && currentLv) currentLv.innerHTML = freshLv.innerHTML;
+
+                            const freshBar = freshProfile.querySelector('.progress-bar');
+                            const currentBar = currentProfile.querySelector('.progress-bar');
+                            if (freshBar && currentBar) {
+                                currentBar.style.width = freshBar.style.width;
+                                currentBar.innerHTML = freshBar.innerHTML;
+                            }
+                        }
+                    })
+                    .catch(err => console.error("🚨 領獎後數據同步失敗:", err));
+            } else {
+                alert("🛡️ 公會提示: " + data.message);
+                btn.disabled = false;
+                btn.innerHTML = `<i class="bi bi-gift-fill me-2"></i>💥 領取公會賞金`;
+            }
+        })
+        .catch(error => {
+            console.error("🚨 領獎失敗:", error);
+            alert("🌐 連線異常，請稍後再試！");
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-gift-fill me-2"></i>💥 領取公會賞金`;
+        });
+    });
+
+    // 🟢 10. 任務分類篩選
+    document.addEventListener('click', function(e) {
+        const filterBtn = e.target.closest('.filter-btn');
+        if (!filterBtn) return;
+
+        document.querySelectorAll('.filter-btn').forEach(btn => { btn.className = "btn btn-sm text-secondary px-3 fw-bold filter-btn"; });
+        filterBtn.className = "btn btn-sm btn-success px-3 fw-bold filter-btn active";
+
+        const filterValue = filterBtn.getAttribute('data-filter');
+        document.querySelectorAll('.quest-card-item').forEach(card => {
+            const cardType = card.getAttribute('data-type');
+            if (filterValue === 'ALL') card.style.display = 'block';
+            else if (filterValue === 'OTHER') card.style.display = (cardType !== 'DAILY' && cardType !== 'WEEKLY') ? 'block' : 'none';
+            else card.style.display = (cardType === filterValue) ? 'block' : 'none';
+        });
+    });
+
+    // 🟢 11. 商城分類篩選
+    document.addEventListener('click', function(e) {
+        const filterBtn = e.target.closest('.shop-filter-btn');
+        if (!filterBtn) return;
+
+        document.querySelectorAll('.shop-filter-btn').forEach(btn => {
+            btn.className = "btn btn-sm text-secondary px-3 fw-bold shop-filter-btn";
+        });
+        filterBtn.className = "btn btn-sm btn-success px-3 fw-bold shop-filter-btn active";
+
+        const filterValue = filterBtn.getAttribute('data-filter');
+        document.querySelectorAll('.shop-item-card-item').forEach(card => {
+            const cardType = card.getAttribute('data-type');
+            card.style.display = (filterValue === 'ALL' || cardType === filterValue) ? 'block' : 'none';
+        });
+    });
+
+    // 🟢 12. 更衣室分類篩選
+    document.addEventListener('click', function(e) {
+        const filterBtn = e.target.closest('.wardrobe-filter-btn');
+        if (!filterBtn) return;
+
+        document.querySelectorAll('.wardrobe-filter-btn').forEach(btn => {
+            btn.className = "btn btn-sm text-secondary px-3 fw-bold wardrobe-filter-btn";
+        });
+        filterBtn.className = "btn btn-sm btn-warning text-dark px-3 fw-bold wardrobe-filter-btn active";
+
+        const filterValue = filterBtn.getAttribute('data-filter');
+        document.querySelectorAll('.wardrobe-item-card-item').forEach(card => {
+            const cardType = card.getAttribute('data-type');
+            card.style.display = (filterValue === 'ALL' || cardType === filterValue) ? 'block' : 'none';
+        });
+    });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

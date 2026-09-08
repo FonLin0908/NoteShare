@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="shop-section" class="w-100" id="shop-section-wrapper">
+
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <h1 class="text-white fw-bold mb-0">
+            <i class="bi bi-shop me-3 text-info"></i>外觀商城
+        </h1>
+
+        <div class="btn-group bg-dark p-1 rounded border border-secondary" role="group">
+            <button type="button" class="btn btn-sm btn-success px-3 fw-bold shop-filter-btn active" data-filter="ALL">全部商品</button>
+            <button type="button" class="btn btn-sm text-secondary px-3 fw-bold shop-filter-btn" data-filter="FRAME">頭像框</button>
+            <button type="button" class="btn btn-sm text-secondary px-3 fw-bold shop-filter-btn" data-filter="IMAGE">自訂頭像</button>
+        </div>
+
+        <div class="dashboard-card px-4 py-2 d-flex align-items-center" style="border-color: #ffd700; background-color: var(--card-bg);">
+            <i class="bi bi-coin me-2 text-warning fs-4"></i>
+            <span class="text-white fw-bold fs-5" id="shop-user-coins" th:text="${user.coins}">0</span>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div th:each="product : ${shopProducts}" class="col-12 col-md-6 col-lg-4 shop-item-card-item" th:data-type="${product.category.name()}">
+
+            <div class="dashboard-card p-4 text-center h-100 d-flex flex-column justify-content-between position-relative avatar-card"
+                 th:style="${user.level < product.requiredLevel} ? 'opacity: 0.4; background: #1a1a1a;' : ''"
+                 th:classappend="${unlockedAssets != null && #lists.contains(unlockedAssets, product.assetType)} ? 'unlocked border-success' : 'locked border-secondary'">
+
+                <div th:if="${user.level < product.requiredLevel}" class="position-absolute top-50 start-50 translate-middle w-100" style="z-index: 20;">
+                    <i class="bi bi-lock-fill text-danger fs-1 mb-2 d-block"></i>
+                    <span class="badge bg-danger fw-bold px-3 py-2 rounded-pill shadow-sm" th:text="'LV. ' + ${product.requiredLevel} + ' 冒險者解鎖'"></span>
+                </div>
+
+                <div class="flex-grow-1 d-flex flex-column align-items-center justify-content-start" th:style="${user.level < product.requiredLevel} ? 'filter: blur(2px);' : ''">
+                    <div class="mb-3 d-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">
+                        <div th:if="${product.category.name() == 'FRAME'}" class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle shadow" style="width: 90px; height: 90px;" th:classappend="${product.styleValue}">
+                            <img th:src="|https://api.dicebear.com/7.x/identicon/svg?seed=${#strings.toLowerCase(#strings.trim(user.username))}|" class="rounded-circle bg-white" style="width: 80px; height: 80px; object-fit: cover;">
+                        </div>
+                        <div th:if="${product.category.name() == 'IMAGE'}" class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle border border-2 border-info shadow" style="width: 90px; height: 90px;">
+                            <img th:src="'/images/avatars/' + ${product.styleValue}" class="rounded-circle bg-white" style="width: 84px; height: 84px; object-fit: cover;">
+                        </div>
+                    </div>
+
+                    <h5 class="text-white fw-bold mb-2" th:text="${product.displayName}">商品名稱</h5>
+                    <div class="mb-3">
+                        <span th:if="${product.series.name() == 'PERMANENT'}" class="badge bg-secondary small">常駐商品</span>
+                        <span th:if="${product.series.name() == 'EVENT'}" class="badge bg-primary small">活動物資</span>
+                        <span th:if="${product.series.name() == 'LIMITED'}" class="badge bg-danger small">限定絕版</span>
+                    </div>
+                    <p class="text-secondary small mb-3 text-break" th:text="${product.description}">精美敘述</p>
+                </div>
+
+                <div class="mt-auto" th:style="${user.level < product.requiredLevel} ? 'filter: blur(2px);' : ''">
+                    <div class="text-warning fw-bold small mb-3">
+                        <i class="bi bi-coin me-1"></i><span th:text="${product.price}">0</span> Coin
+                    </div>
+                    <button th:if="${user.level < product.requiredLevel}" class="btn btn-secondary btn-sm w-100 fw-bold" disabled>資格鎖定</button>
+                    <button th:if="${user.level >= product.requiredLevel && (unlockedAssets == null || !#lists.contains(unlockedAssets, product.assetType))}" class="btn btn-info btn-sm w-100 fw-bold text-dark buy-asset-btn" th:data-asset="${product.assetType}" th:data-price="${product.price}">消耗金幣兌換</button>
+                    <button th:if="${user.level >= product.requiredLevel && unlockedAssets != null && #lists.contains(unlockedAssets, product.assetType)}" class="btn btn-success btn-sm w-100 fw-bold disabled py-2"><i class="bi bi-check2-circle me-1"></i>已擁有</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

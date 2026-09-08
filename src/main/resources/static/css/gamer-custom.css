@@ -1,0 +1,88 @@
+/* =========================================================================
+   🌌 全球玩家外觀特效庫 (頭像框槽精簡版)
+   ========================================================================= */
+
+/* ── 🟢 0. 全域變數與電競基礎主色調 ───────────────────────────────────── */
+:root {
+    --bg-color: #121212;
+    --card-bg: #1e1e1e;
+    --sidebar-bg: #1a1a1a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #aaaaaa;
+    --accent-color: #00bcd4; /* 電競藍 */
+    --success-color: #4caf50; /* 解鎖綠 */
+    --locked-color: #f44336;  /* 未解鎖紅 */
+}
+
+/* ── 🟢 1. 頂級頭像框特殊外觀特效槽 (FRAME) ────────────────────────────── */
+
+/* [稀有] 霓虹流光頭像框 (AVATAR_FRAME_NEON) */
+.frame-effect-neon {
+    border: 3px solid #00bcd4 !important;
+    box-shadow: 0 0 15px #00bcd4, inset 0 0 10px #00bcd4 !important;
+    animation: neon-pulse 2s infinite ease-in-out;
+}
+@keyframes neon-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 15px #00bcd4; }
+    50% { transform: scale(1.02); box-shadow: 0 0 25px #00bcd4, 0 0 10px #00bcd4; }
+}
+
+/* [史詩] 煉獄熔岩頭像框 (FRAME_LAVA) - 2.0 呼吸加強版 */
+.frame-effect-lava {
+    border: 3px solid #ff5722 !important;
+    box-shadow: 0 0 15px #ff5722, inset 0 0 8px rgba(255,87,34,0.5) !important;
+    animation: lava-burn 1.5s infinite alternate ease-in-out;
+}
+@keyframes lava-burn {
+    0% { border-color: #ff5722; box-shadow: 0 0 12px #ff5722; transform: scale(1); }
+    100% { border-color: #ff9800; box-shadow: 0 0 25px #ff9800, 0 0 10px #ff5722; transform: scale(1.01); }
+}
+
+/* [傳奇] 聖潔星芒銀河頭像框 (FRAME_GALAXY) - 漸層動態 HUE 旋轉 */
+.frame-effect-galaxy {
+    border: 3px solid #9c27b0 !important;
+    background: linear-gradient(#121212, #121212) padding-box,
+                linear-gradient(135deg, #e040fb, #00bcd4) border-box !important;
+    box-shadow: 0 0 20px rgba(224, 64, 251, 0.6) !important;
+    animation: galaxy-rotate 4s linear infinite;
+}
+@keyframes galaxy-rotate {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+}
+
+/* ── 🟢 2. 使用者後台主架構與基礎 UI 組件樣式 ───────────────────────────── */
+
+/* 側邊導航欄系統 */
+.sidebar .nav-link { color: var(--text-secondary); transition: color 0.3s ease; }
+.sidebar .nav-link.active { background-color: var(--accent-color); color: #fff; border-radius: 8px; font-weight: bold; }
+.sidebar .nav-link:hover:not(.active) { color: #fff; background-color: #333; border-radius: 8px; }
+.sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid #333;
+    padding-top: 2rem;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+/* 大廳卡片基礎樣式 */
+.dashboard-card { background-color: var(--card-bg); border-radius: 12px; border: 1px solid #333; transition: transform 0.2s ease, border-color 0.2s ease; }
+.dashboard-card:hover { transform: translateY(-3px); border-color: #444; }
+
+/* 換裝/商城道具卡片 */
+.avatar-card { border-width: 2px; cursor: pointer; position: relative; }
+.avatar-card img { width: 80px; height: 80px; border-radius: 50%; transition: transform 0.3s ease; }
+.avatar-card:hover img { transform: scale(1.1); }
+
+/* ── 🟢 3. 萬能基礎動畫特效庫 ────────────────────────────────────────── */
+
+/* 基礎警告/任務未達成閃爍特效 */
+@keyframes blink {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.05); box-shadow: 0 0 10px rgba(220, 53, 69, 0.8); }
+    100% { opacity: 1; transform: scale(1); }
+}
+.blink-animation { animation: blink 1.5s infinite ease-in-out; }

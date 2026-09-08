@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <meta charset="UTF-8">
+        <title>建立新筆記 - NoteShare</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+        <link rel="stylesheet" th:href="@{/css/gamer-custom.css}">
+    </head>
+    <body class="bg-light">
+
+    <!-- 1. 導覽列 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-info" href="/notes">📚 NoteShare 筆記平台</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto animate-align">
+                    <li class="nav-item d-flex align-items-center"><a class="nav-link" href="/">主頁</a></li>
+                    <li class="nav-item d-flex align-items-center"><a class="nav-link" href="/notes">筆記大廳</a></li>
+                    <li class="nav-item d-flex align-items-center"><a class="nav-link" href="/ranking">排行榜</a></li>
+
+                    <li class="nav-item d-flex align-items-center" th:if="${user == null}">
+                        <a class="nav-link btn btn-primary btn-sm text-white px-3 ms-2"
+                           href="#"
+                           onclick="window.location.href='/login?target=' + encodeURIComponent(window.location.href)">登入</a>
+                    </li>
+
+                    <li class="nav-item ms-3 dropdown d-flex align-items-center" th:unless="${user == null}">
+
+                        <a class="nav-link dropdown-toggle d-flex align-items-center text-light border-0 p-0 pe-2"
+                           href="#" id="userNavbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+
+                            <span class="text-light me-3 small fw-semibold d-none d-sm-inline" th:text="${user.nickname}">使用者名稱</span>
+
+                            <div class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle"
+                                 style="width: 42px; height: 42px; transition: 0.3s;"
+                                 th:classappend="${equippedFrame != null ? equippedFrame.styleValue : 'border border-info'}"
+                                 th:styleappend="${equippedFrame == null ? 'box-shadow: 0 0 10px rgba(13, 202, 240, 0.3);' : ''}">
+
+                                <img th:src="${equippedAvatar != null ? '/images/avatars/' + equippedAvatar.styleValue : 'https://api.dicebear.com/7.x/identicon/svg?seed=' + #strings.toLowerCase(#strings.trim(user.username))}"
+                                     class="rounded-circle border border-2 border-info bg-white shadow-sm user-avatar-img-slot"
+                                     style="width: 40px; height: 40px; object-fit: cover; transition: 0.3s;">
+                            </div>
+                        </a>
+
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-3 px-2 mt-2 rounded-3" aria-labelledby="userNavbarDropdown" style="min-width: 200px; margin-top: 10px !important;">
+                            <li class="px-3 py-1 mb-2">
+                                <div class="fw-bold text-dark text-truncate" th:text="${user.nickname}">暱稱</div>
+                                <div class="text-muted small text-truncate">@<span th:text="${user.username}">username</span></div>
+                            </li>
+                            <li><hr class="dropdown-divider opacity-50"></li>
+
+                            <li class="my-1">
+                                <a class="dropdown-item py-2 rounded-3 d-flex align-items-center text-dark" th:href="@{/member/{id}(id=${user.id})}">
+                                    <i class="bi bi-person-circle text-info fs-5 me-2"></i>
+                                    <span class="fw-semibold">進入個人主頁</span>
+                                </a>
+                            </li>
+
+                            <li class="my-1">
+                                <a class="dropdown-item py-2 rounded-3 d-flex align-items-center text-muted small" href="/dashboard">
+                                    <i class="bi bi-gear me-2"></i> 個人檔案後台
+                                </a>
+                            </li>
+
+                            <li><hr class="dropdown-divider opacity-50"></li>
+
+                            <li class="mt-1">
+                                <a class="dropdown-item py-2 rounded-3 bg-danger-subtle text-danger fw-bold d-flex align-items-center" href="/logout">
+                                    <i class="bi bi-box-arrow-right fs-5 me-2"></i>
+                                    <span>安全登出系統</span>
+                                </a>
+                            </li>
+                        </ul>
+
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+        <!-- 2. 表單容器區 -->
+        <div class="container mb-5" style="max-width: 800px;">
+            <div class="card p-4 p-md-5 border-0 shadow-sm rounded-3 bg-white">
+
+                <div class="d-flex align-items-center mb-4">
+                    <i class="bi bi-journal-plus text-primary fs-1 me-3"></i>
+                    <div>
+                        <h2 class="fw-bold text-dark m-0">發布新筆記</h2>
+                        <p class="text-muted m-0">將你的知識轉化為文字與多媒體，分享給更多人或妥善收藏</p>
+                    </div>
+                </div>
+
+                <hr class="mb-4">
+
+                <!-- 傳送表單到後端的 /notes/doCreate (下一階段實作) -->
+                <form action="/notes/doCreate" method="post" enctype="multipart/form-data">
+
+                    <!-- 欄位 1：標題與分類 -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold text-secondary">筆記標題</label>
+                            <input type="text" name="title" class="form-control form-control-lg rounded-3"
+                                   placeholder="輸入亮眼的標題（例如：Java 執行緒安全精華）" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-secondary">主分類</label>
+                            <select name="type" class="form-select form-select-lg rounded-3" required>
+
+                                <option th:each="typeConstant : ${T(com.example.demo.model.NoteType).values()}"
+                                        th:value="${typeConstant.name()}"
+                                        th:text="${typeConstant.displayName}">
+                                    預設文字（渲染後會被替換）
+                                </option>
+
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 欄位 2：標籤項目 -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary">標籤 (Tags)</label>
+                        <input type="text" name="tags" class="form-control rounded-3"
+                               placeholder="請以英文逗號隔開各個標籤，例如：資安,RSA,期中考">
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>多個標籤請用 , 隔開（例如：Java,前端,筆記）</small>
+                    </div>
+
+                    <!-- 欄位 3：大塊內文區 -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary">筆記內文</label>
+                        <textarea name="content" class="form-control rounded-3" rows="10"
+                                  placeholder="在此處撰寫你的筆記具體細節..." required style="font-size: 1.05rem;"></textarea>
+                    </div>
+
+                    <!-- 欄位 4：隱私與權限控制 -->
+                    <div class="mb-4 bg-light p-4 rounded-3 border border-secondary-subtle">
+                        <label class="form-label fw-bold text-dark mb-3"><i class="bi bi-shield-lock me-2 text-primary"></i>隱私與發布權限設定</label>
+
+                        <div class="row g-3">
+                            <!-- 選項一：完全公開 (各佔 6 等分，平分畫面) -->
+                            <div class="col-md-6">
+                                <div class="form-check p-3 bg-white border rounded-3 h-100 shadow-sm">
+                                    <input class="form-check-input ms-1" type="radio" name="visibility" id="visPublic" value="PUBLIC" checked>
+                                    <label class="form-check-label fw-bold text-success ms-2" for="visPublic">
+                                        <i class="bi bi-globe me-1"></i> 完全公開
+                                    </label>
+                                    <p class="text-muted small mt-1 mb-0 ms-2">所有人皆可在筆記大廳瀏覽、搜尋並點閱這篇筆記。</p>
+                                </div>
+                            </div>
+
+                            <!-- 選項二：完全私密 -->
+                            <div class="col-md-6">
+                                <div class="form-check p-3 bg-white border rounded-3 h-100 shadow-sm">
+                                    <input class="form-check-input ms-1" type="radio" name="visibility" id="visPrivate" value="PRIVATE">
+                                    <label class="form-check-label fw-bold text-danger ms-2" for="visPrivate">
+                                        <i class="bi bi-lock-fill"></i> 完全私密
+                                    </label>
+                                    <p class="text-muted small mt-1 mb-0 ms-2">大廳絕不公開。未來僅能在您的個人主頁被您本人閱讀。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 欄位 5：可選的多媒體輔助設定 -->
+                    <div class="accordion mb-4" id="mediaAccordion">
+                        <div class="accordion-item border-0 shadow-sm rounded-3 overflow-hidden">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-secondary bg-opacity-10 fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMedia">
+                                    <i class="bi bi-file-earmark-play-fill me-2 text-secondary"></i> 添加多媒體與附加檔案連結 (選填)
+                                </button>
+                            </h2>
+                            <div id="collapseMedia" class="accordion-collapse collapse" data-bs-parent="#mediaAccordion">
+                                <div class="accordion-body bg-white row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-dark">
+                                            <i class="bi bi-image text-success me-1"></i> 上傳筆記大封面圖
+                                        </label>
+                                        <!-- 移除原先的 url 輸入框，改為 type="file"，不加 multiple 代表只能選一張 -->
+                                        <input type="file" name="coverImageFile" id="coverImageFileInput" class="form-control" accept="image/*">
+                                        <div class="form-text small text-muted mt-1">主要顯示於大廳卡片與內文頂部</div>
+                                    </div>
+                                    <!-- 可選擇多張筆記插圖。 -->
+                                    <div class="col-12 bg-light p-3 rounded-3 border border-dashed">
+                                        <label class="form-label small fw-bold text-dark"><i class="bi bi-images text-primary me-1"></i> 上傳筆記插圖 (可多選，最多 5 張)</label>
+                                        <!-- 關鍵：type="file" 且加上 multiple 代表可以一次選取多張圖片，accept 限制只能選影像檔 -->
+                                        <input type="file" name="imageFiles" id="imageFilesInput" class="form-control" multiple accept="image/*">
+                                        <div class="form-text small text-muted mt-1">
+                                            <i class="bi bi-info-circle me-1"></i> 支援 JPG、PNG 格式，將自動優化並建立九宮格預覽牆。
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">YouTube 影片連結 (URL)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text" id="yt-icon"><i class="bi bi-youtube text-danger"></i></span>
+                                            <input type="url" name="youtubeVideoId" id="ytUrlInput" class="form-control"
+                                                   placeholder="例如：https://www.youtube.com/watch?v=4zahvcJ9wbM">
+                                        </div>
+                                        <div id="ytFeedback" class="form-text small mt-1">
+                                            <i class="bi bi-info-circle me-1"></i>直接複製並貼上瀏覽器上方的影片網址即可
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">附件下載 URL</label>
+                                        <input type="text" name="attachmentUrl" class="form-control" placeholder="例如：https://github.com/xxx">
+                                        <div class="form-text small text-muted mt-1">可貼上 GitHub、雲端硬碟或任何外站連結</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label small fw-bold text-secondary">附件顯示名稱</label>
+                                        <input type="text" name="attachmentFileName" class="form-control" placeholder="例如：115學年度演算法衝刺講義.pdf">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 提交與取消按鈕 -->
+                    <div class="d-flex gap-3 justify-content-end mt-4">
+                        <a href="/notes" class="btn btn-outline-secondary px-4 rounded-pill">取消返回</a>
+                        <button type="submit" class="btn btn-primary px-5 rounded-pill shadow-smfw-bold">確認發布筆記</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const ytInput = document.getElementById('ytUrlInput');
+                const ytFeedback = document.getElementById('ytFeedback');
+                const submitBtn = document.querySelector('button[type="submit"]');
+
+                // 萬用 YouTube ID 提取正規表示式 (前端 JavaScript 版)
+                const ytRegex = /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+
+                // 監聽 input 事件：當使用者在貼上、打字、或離開輸入框時觸發
+                ytInput.addEventListener('input', function() {
+                    const value = ytInput.value.trim();
+
+                    // 情況 A：如果使用者根本沒填，放行並恢復預設提示
+                    if (value === "") {
+                        ytInput.classList.remove('is-valid', 'is-invalid');
+                        ytFeedback.innerHTML = '<i class="bi bi-info-circle me-1"></i>直接複製並貼上瀏覽器上方的影片網址即可';
+                        ytFeedback.className = "form-text small mt-1 text-muted";
+                        submitBtn.disabled = false;
+                        return;
+                    }
+
+                    // 情況 B：用 Regex 檢查是否符合 YouTube 規格
+                    const match = value.match(ytRegex);
+
+                    if (match) {
+                        // 🎉 格式正確！抓取 11 位元的影片 ID
+                        const videoId = match[1];
+
+                        // 將有效輸入正規化為標準 YouTube 分享網址。
+                        const cleanUrl = "https://youtu.be/" + videoId;
+                        ytInput.value = cleanUrl;
+
+                        // 畫面上亮起精美的綠色成功外框與提示
+                        ytInput.classList.remove('is-invalid');
+                        ytInput.classList.add('is-valid');
+                        ytFeedback.innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> 格式正確！已自動校正為標準連結 (影片 ID: ${videoId})`;
+                        ytFeedback.className = "form-text small mt-1 text-success fw-bold";
+
+                        // 確保提交按鈕可用
+                        submitBtn.disabled = false;
+
+                    } else {
+                        // ❌ 格式錯誤：如果本來就是 11 位元 ID，我們網開一面算他對
+                        if (value.length === 11) {
+                            ytInput.classList.remove('is-invalid');
+                            ytInput.classList.add('is-valid');
+                            ytFeedback.innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> 偵測到直接輸入影片 ID。`;
+                            ytFeedback.className = "form-text small mt-1 text-success";
+                            submitBtn.disabled = false;
+                            return;
+                        }
+
+                        // 否則，無情亮起紅色警告外框
+                        ytInput.classList.remove('is-valid');
+                        ytInput.classList.add('is-invalid');
+                        ytFeedback.innerHTML = '<i class="bi bi-exclamation-circle-fill text-danger me-1"></i> 錯誤的 YouTube 網址格式！請檢查是否複製完整。';
+                        ytFeedback.className = "form-text small mt-1 text-danger fw-bold";
+
+                        // 🔒 鎖死提交按鈕，不允許帶著髒資料送出表單
+                        submitBtn.disabled = true;
+                    }
+                });
+            });
+            // 10. 檢舉非同步提交控制器 (正式運作版)
+document.addEventListener("DOMContentLoaded", function () {
+    const submitReportBtn = document.getElementById("submitReportBtn");
+
+    if (submitReportBtn) {
+        submitReportBtn.addEventListener("click", function () {
+            const reportTargetId = document.getElementById("reportTargetId").value;
+            const description = document.getElementById("reportDescription").value;
+
+            const selectedRadio = document.querySelector('input[name="reasonCategory"]:checked');
+            if (!selectedRadio) {
+                alert("請選擇違規類別！");
+                return;
+            }
+            const reasonCategory = selectedRadio.value;
+
+            // 封裝成後端要接收的 JSON 物件
+            const reportData = {
+                targetId: parseInt(reportTargetId),
+                targetType: "NOTE",
+                reasonCategory: reasonCategory,
+                description: description
+            };
+
+            // 禁用按鈕防止重複點擊
+            submitReportBtn.disabled = true;
+
+            // 發送非同步請求給後端 API
+            fetch('/notes/api/report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(reportData)
+            })
+            .then(response => {
+                // 如果後端回傳 404 或 500 等錯誤，依然轉成 JSON 處理
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // 1. 找到 Modal 實例並強制關閉（這會讓懸浮表單消失）
+                    const reportModalEl = document.getElementById('reportModal');
+                    const modalInstance = bootstrap.Modal.getInstance(reportModalEl) || new bootstrap.Modal(reportModalEl);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+
+                    // 2. 清空表單內容，方便下次點開是乾淨的
+                    document.getElementById("reportForm").reset();
+
+                    // 3. 喚醒右下角的 Toast 成功提示
+                    const reportToastEl = document.getElementById('reportToast');
+                    const toastInstance = bootstrap.Toast.getOrCreateInstance(reportToastEl);
+                    if (toastInstance) {
+                        toastInstance.show();
+                    }
+                } else {
+                    alert("提示：" + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // ⚠️ 因為我們還沒寫後端 Controller，現在點擊「一定」會進到這裡，並顯示 404 找不到網頁
+                alert('提示：前端發送成功！但因為後端 API 尚未建立，目前回傳錯誤是正常的。');
+            })
+            .finally(() => {
+                // 恢復按鈕可用狀態
+                submitReportBtn.disabled = false;
+            });
+        });
+    }
+});
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+</html>

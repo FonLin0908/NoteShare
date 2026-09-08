@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>NoteShare 冒險者專注小屋</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .study-container { max-width: 1200px; margin: 0 auto; }
+        .canvas-card { position: relative; background-color: #1a1a1a; border: 2px solid #333; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #roomCanvas { background-color: #2a2018; display: block; margin: 0 auto; cursor: pointer; }
+        .hud-card { background-color: #1e1e1e; border: 1px solid #333; border-radius: 12px; }
+
+        .mode-badge { transition: all 0.3s ease; }
+
+        /* 🗑️ 建造模式下的家具回收/刪除區 */
+        #recycleZone {
+            display: none;
+            border: 2px dashed #ff4444;
+            background-color: rgba(255, 68, 68, 0.1);
+            color: #ff6666;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        #recycleZone.hovered {
+            background-color: rgba(255, 68, 68, 0.3);
+            border-color: #ff0000;
+            transform: scale(1.02);
+            color: #ffffff;
+        }
+
+        /* 🛒 商店與背包選項卡卡片 */
+        .shop-panel-card {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .shop-nav-tabs .nav-link {
+            color: #aaa;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 10px 16px;
+            font-weight: 600;
+        }
+        .shop-nav-tabs .nav-link.active {
+            color: #ffc107;
+            background: transparent;
+            border-bottom: 2px solid #ffc107;
+        }
+
+        /* 🛒 內部固定高度滾動容器 (方案 C) */
+        .catalog-scroll-container {
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .catalog-scroll-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .catalog-scroll-container::-webkit-scrollbar-thumb {
+            background-color: #444;
+            border-radius: 3px;
+        }
+
+        /* 📦 家具卡片樣式 */
+        .furniture-card {
+            background-color: #262626;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 8px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .furniture-card:hover {
+            border-color: #555;
+        }
+        .furniture-card.disabled-card {
+            opacity: 0.5;
+            filter: grayscale(80%);
+        }
+        .furniture-icon-box {
+            width: 48px;
+            height: 48px;
+            background-color: #1a1a1a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .furniture-canvas-icon {
+            image-rendering: pixelated;
+        }
+
+        .badge-sale {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body class="py-4">
+
+<div class="container study-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-info mb-1"><i class="bi bi-house-heart-fill me-2"></i>專注冒險小屋</h2>
+            <p class="text-secondary small mb-0">留在這裡累積專注時數，解鎖冒險者寶箱與專屬 Buff！</p>
+        </div>
+        <div>
+            <a th:href="@{/dashboard}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>返回大廳</a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 左側：Canvas 畫布與三分頁商店控制面板 -->
+        <div class="col-lg-8">
+            <div class="canvas-card p-3 text-center">
+                <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+                    <span id="modeBadge" class="badge bg-success fs-6 mode-badge">
+                        <i class="bi bi-controller me-1"></i>普通冒險模式
+                    </span>
+                    <button id="toggleBuildBtn" class="btn btn-warning btn-sm fw-bold">
+                        <i class="bi bi-hammer me-1"></i>切換至建造模式
+                    </button>
+                </div>
+
+                <canvas id="roomCanvas" width="480" height="480"></canvas>
+            </div>
+
+            <!-- 🛠️ 建造模式下展現的三分頁面板 (普通模式預設隱藏) -->
+            <div id="buildControls" class="mt-3" style="display: none;">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <div class="shop-panel-card p-3">
+                            <!-- 三分頁標籤 -->
+                            <ul class="nav nav-tabs shop-nav-tabs mb-3" id="shopTabs" role="tablist">
+                                <li class="nav-item">
+                                    <button class="nav-link active" id="tab-inventory" data-bs-toggle="tab" data-bs-target="#panel-inventory" type="button">
+                                        <i class="bi bi-bag-fill me-1"></i>我的背包 (<span id="inventoryBadgeCount">0</span>)
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" id="tab-daily" data-bs-toggle="tab" data-bs-target="#panel-daily" type="button">
+                                        <i class="bi bi-fire text-danger me-1"></i>每日特賣
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" id="tab-catalog" data-bs-toggle="tab" data-bs-target="#panel-catalog" type="button">
+                                        <i class="bi bi-shop me-1"></i>家具目錄
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="shopTabsContent">
+                                <!-- 🎒 1. 個人背包 Tab (左右翻頁機制) -->
+                                <div class="tab-pane fade show active" id="panel-inventory" role="tabpanel">
+                                    <div id="inventoryContainer" class="row g-2">
+                                        <!-- JS 動態繪製背包內容 -->
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top border-secondary">
+                                        <button class="btn btn-sm btn-outline-secondary" id="invPrevBtn" disabled><i class="bi bi-chevron-left"></i> 上一頁</button>
+                                        <span class="small text-secondary" id="invPageIndicator">頁次 1 / 1</span>
+                                        <button class="btn btn-sm btn-outline-secondary" id="invNextBtn" disabled>下一頁 <i class="bi bi-chevron-right"></i></button>
+                                    </div>
+                                </div>
+
+                                <!-- 🔥 2. 每日特賣 Tab (6 格固定櫥窗) -->
+                                <div class="tab-pane fade" id="panel-daily" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 small text-secondary">
+                                        <span>⏱️ 今日櫃位刷新剩餘：<strong class="text-warning">14:25:00</strong></span>
+                                        <span class="badge bg-danger">每日限定 6 櫃</span>
+                                    </div>
+                                    <div id="dailyShopContainer" class="row g-2">
+                                        <!-- JS 動態繪製每日 6 格 -->
+                                    </div>
+                                </div>
+
+                                <!-- 🛒 3. 家具目錄 Tab (內部滾動條 - 方案 C) -->
+                                <div class="tab-pane fade" id="panel-catalog" role="tabpanel">
+                                    <!-- 分類篩選按鈕 -->
+                                    <div class="d-flex gap-1 mb-2">
+                                        <button class="btn btn-xs btn-warning catalog-filter-btn active" onclick="filterCatalog('ALL')">全部</button>
+                                        <button class="btn btn-xs btn-outline-secondary catalog-filter-btn" onclick="filterCatalog('FURNITURE')">🪑 基礎</button>
+                                        <button class="btn btn-xs btn-outline-secondary catalog-filter-btn" onclick="filterCatalog('DECORATION')">🖼️ 裝飾</button>
+                                        <button class="btn btn-xs btn-outline-secondary catalog-filter-btn" onclick="filterCatalog('FUNCTIONAL')">⚡ 功能</button>
+                                    </div>
+                                    <!-- 固定高度內部滾動條區域 -->
+                                    <div class="catalog-scroll-container">
+                                        <div id="catalogContainer" class="row g-2">
+                                            <!-- JS 動態繪製目錄列表 -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 🗑️ 回收刪除區 -->
+                    <div class="col-md-4">
+                        <div id="recycleZone" class="h-100 d-flex flex-column justify-content-center align-items-center">
+                            <i class="bi bi-trash3-fill fs-3 mb-1"></i>
+                            <div class="fw-bold small">拖移家具至此處退回背包</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：HUD 面板 (計時器 + 音樂) -->
+        <div class="col-lg-4 d-flex flex-column gap-3">
+            <div class="hud-card p-4 text-center">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-warning fw-bold mb-0"><i class="bi bi-stopwatch me-2"></i>專注計時器</h5>
+                    <select id="timerModeSelect" class="form-select form-select-sm bg-dark text-info border-secondary w-auto">
+                        <option value="25">番茄鐘 (25分)</option>
+                        <option value="50">深層專注 (50分)</option>
+                        <option value="STOPWATCH">正向計時</option>
+                    </select>
+                </div>
+                <div class="display-3 fw-bold text-white mb-3 font-monospace" id="timerDisplay">25:00</div>
+                <div class="d-flex justify-content-center gap-2 mb-3">
+                    <button id="startTimerBtn" class="btn btn-success px-4 fw-bold"><i class="bi bi-play-fill me-1"></i>開始專注</button>
+                    <button id="pauseTimerBtn" class="btn btn-outline-warning px-3" disabled><i class="bi bi-pause-fill"></i>暫停</button>
+                    <button id="resetTimerBtn" class="btn btn-outline-danger px-3"><i class="bi bi-arrow-counterclockwise"></i>重置</button>
+                </div>
+                <div class="progress bg-dark mb-2" style="height: 8px;">
+                    <div id="timerProgressBar" class="progress-bar bg-info progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="hud-card p-4">
+                <h5 class="text-info fw-bold mb-3"><i class="bi bi-music-note-beamed me-2"></i>Lo-Fi 專注電台</h5>
+                <select id="bgmSelect" class="form-select bg-dark text-white border-secondary mb-3">
+                    <option value="https://stream.zeno.fm/f3wvbbqmdg8uv">🌧️ 舒適深夜雨聲</option>
+                    <option value="https://stream.zeno.fm/0r0xa792kwzuv">☕ 溫馨咖啡廳</option>
+                </select>
+                <div class="d-flex align-items-center gap-3">
+                    <button id="toggleAudioBtn" class="btn btn-outline-info"><i id="audioIcon" class="bi bi-play-fill fs-5"></i></button>
+                    <input type="range" class="form-range" id="volumeSlider" min="0" max="1" step="0.05" value="0.5">
+                </div>
+                <audio id="bgmAudio" loop preload="none"></audio>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:inline="none">
+    const canvas = document.getElementById('roomCanvas');
+    const ctx = canvas.getContext('2d');
+    const toggleBuildBtn = document.getElementById('toggleBuildBtn');
+    const modeBadge = document.getElementById('modeBadge');
+    const buildControls = document.getElementById('buildControls');
+    const recycleZone = document.getElementById('recycleZone');
+
+    ctx.imageSmoothingEnabled = false;
+
+    const GRID_SIZE = 40;
+    const COLS = 12;
+    const ROWS = 12;
+
+    // 🟢 1. 多圖檔載入管理 (Image Cache Pool)
+    const imageCache = {};
+    function getSpriteImage(srcUrl) {
+        if (!srcUrl) srcUrl = '/images/furniture/Interiors_free_16x16.png';
+        if (!imageCache[srcUrl]) {
+            const img = new Image();
+            img.src = srcUrl;
+            imageCache[srcUrl] = img;
+            img.onload = () => { renderScene(); renderAllUI(); };
+        }
+        return imageCache[srcUrl];
+    }
+
+    // 🟢 2. 前端動態資料狀態 (從 API 載入)
+    let FURNITURE_DATABASE = [];  // 家具規格列表 (Spec)
+    let userInventoryData = {};   // 背包數據 { furnitureId: totalOwned }
+    let dailyShopData = [];       // 每日特賣數據
+    let roomFurnitureList = [];   // 場上已擺設家具
+
+    function getPlacedCount(specId) {
+        return roomFurnitureList.filter(item => item.specId === specId).length;
+    }
+
+    // 🟢 3. 後端 API 鏈結函式庫 (Fetch Operations)
+    async function loadInitialData() {
+        try {
+            const layoutRes = await fetch('/api/study-room/layout');
+            if (layoutRes.ok) {
+                const layoutData = await layoutRes.json();
+                roomFurnitureList = layoutData.map(item => ({
+                    id: 'placed_' + item.id,
+                    specId: item.furniture.id,
+                    gridX: item.gridX,
+                    gridY: item.gridY,
+                    spec: item.furniture
+                }));
+
+                layoutData.forEach(item => {
+                    if (item.furniture && !FURNITURE_DATABASE.some(s => s.id === item.furniture.id)) {
+                        FURNITURE_DATABASE.push(item.furniture);
+                    }
+                });
+            }
+
+            await loadInventoryData();
+            initObstacles();
+            renderScene();
+        } catch (err) {
+            console.error("🚨 載入小屋資料失敗:", err);
+        }
+    }
+
+    async function loadInventoryData() {
+        try {
+            const res = await fetch('/api/study-room/inventory');
+            if (res.ok) {
+                const invList = await res.json();
+                userInventoryData = {};
+                invList.forEach(inv => {
+                    userInventoryData[inv.furniture.id] = inv.totalOwned;
+                    if (inv.furniture && !FURNITURE_DATABASE.some(s => s.id === inv.furniture.id)) {
+                        FURNITURE_DATABASE.push(inv.furniture);
+                    }
+                });
+                renderInventoryUI();
+            }
+        } catch (err) {
+            console.error("🚨 載入背包失敗:", err);
+        }
+    }
+
+    async function loadDailyShopData() {
+        try {
+            const res = await fetch('/api/study-room/daily-shop');
+            if (res.ok) {
+                dailyShopData = await res.json();
+                dailyShopData.forEach(item => {
+                    if (item.furniture && !FURNITURE_DATABASE.some(s => s.id === item.furniture.id)) {
+                        FURNITURE_DATABASE.push(item.furniture);
+                    }
+                });
+                renderDailyShopUI();
+            }
+        } catch (err) {
+            console.error("🚨 載入每日特賣失敗:", err);
+        }
+    }
+
+    async function saveRoomLayoutToBackend() {
+        const payload = roomFurnitureList.map(item => ({
+            furnitureId: item.specId,
+            gridX: item.gridX,
+            gridY: item.gridY
+        }));
+
+        try {
+            const res = await fetch('/api/study-room/layout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                console.log("✅ 小屋佈局成功儲存至伺服器！");
+            } else {
+                alert("儲存小屋佈局失敗，請檢查網路狀態。");
+            }
+        } catch (err) {
+            console.error("🚨 儲存佈局 API 異常:", err);
+        }
+    }
+
+    window.buyCatalogItem = async function(specId) {
+        try {
+            const res = await fetch('/api/study-room/buy/catalog/' + specId, { method: 'POST' });
+            if (res.ok) {
+                alert("🎉 購買成功！家具已存入背包。");
+                await loadInventoryData();
+            } else {
+                const errorData = await res.json();
+                alert("❌ 購買失敗：" + (errorData.message || "金幣不足或系統錯誤"));
+            }
+        } catch (err) {
+            console.error("🚨 購買常駐家具失敗:", err);
+        }
+    };
+
+    window.buyDailyItem = async function(slotIndex, btnElement) {
+        try {
+            const res = await fetch('/api/study-room/buy/daily/' + slotIndex, { method: 'POST' });
+            if (res.ok) {
+                alert("🎉 搶購成功！家具已存入背包。");
+                await loadInventoryData();
+                await loadDailyShopData();
+            } else {
+                const errorData = await res.json();
+                alert("❌ 搶購失敗：" + (errorData.message || "金幣不足或已售罄"));
+            }
+        } catch (err) {
+            console.error("🚨 購買特賣商品失敗:", err);
+        }
+    };
+
+    // 🟢 4. 網格碰撞與障礙物管理
+    const obstacleMap = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+
+    function initObstacles() {
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                obstacleMap[r][c] = (r === 0) ? 1 : 0;
+            }
+        }
+
+        roomFurnitureList.forEach(item => {
+            const spec = item.spec || FURNITURE_DATABASE.find(s => s.id === item.specId);
+            if (!spec) return;
+
+            if (dragState.mode === 'DRAGGING' && dragState.draggedItem && dragState.draggedItem.id === item.id) {
+                return;
+            }
+
+            if (!spec.isWalkable) {
+                const occupyW = Math.ceil(spec.tileW || 1);
+                const occupyH = Math.ceil(spec.tileH || 1);
+                for (let w = 0; w < occupyW; w++) {
+                    for (let h = 0; h < occupyH; h++) {
+                        const targetX = item.gridX + w;
+                        const targetY = item.gridY + h;
+                        if (targetX >= 0 && targetX < COLS && targetY >= 0 && targetY < ROWS) {
+                            obstacleMap[targetY][targetX] = 1;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    let isBuildMode = false;
+
+    const dragState = {
+        mode: 'IDLE',
+        draggedItem: null,
+        originalGridX: 0,
+        originalGridY: 0,
+        currentMouseGridX: 0,
+        currentMouseGridY: 0,
+        isValidPlacement: true,
+        isOverRecycleZone: false
+    };
+
+    function canPlaceFurniture(spec, targetGridX, targetGridY, currentPlacedId = null) {
+        const occupyW = Math.ceil(spec.tileW || 1);
+        const occupyH = Math.ceil(spec.tileH || 1);
+
+        if (targetGridX < 0 || targetGridX + occupyW > COLS ||
+            targetGridY < 1 || targetGridY + occupyH > ROWS) {
+            return false;
+        }
+
+        if (character.gridX >= targetGridX && character.gridX < targetGridX + occupyW &&
+            character.gridY >= targetGridY && character.gridY < targetGridY + occupyH) {
+            return false;
+        }
+
+        for (let w = 0; w < occupyW; w++) {
+            for (let h = 0; h < occupyH; h++) {
+                if (obstacleMap[targetGridY + h][targetGridX + w] === 1) {
+                    return false;
+                }
+            }
+        }
+
+        const hasOverlapWithOtherFurniture = roomFurnitureList.some(otherItem => {
+            if (dragState.mode === 'DRAGGING' && currentPlacedId && otherItem.id === currentPlacedId) {
+                return false;
+            }
+
+            const otherSpec = otherItem.spec || FURNITURE_DATABASE.find(s => s.id === otherItem.specId);
+            if (!otherSpec) return false;
+
+            const otherW = Math.ceil(otherSpec.tileW || 1);
+            const otherH = Math.ceil(otherSpec.tileH || 1);
+
+            const isOverlapX = !(targetGridX + occupyW <= otherItem.gridX || targetGridX >= otherItem.gridX + otherW);
+            const isOverlapY = !(targetGridY + occupyH <= otherItem.gridY || targetGridY >= otherItem.gridY + otherH);
+
+            return isOverlapX && isOverlapY;
+        });
+
+        return !hasOverlapWithOtherFurniture;
+    }
+
+    function startPlacingFromInventory(specId) {
+        if (!isBuildMode) return;
+        const spec = FURNITURE_DATABASE.find(s => s.id === specId);
+        if (!spec) return;
+
+        dragState.mode = 'PLACING_NEW';
+        dragState.draggedItem = { specId: spec.id, spec: spec };
+        dragState.isValidPlacement = canPlaceFurniture(spec, 0, 0);
+    }
+
+    function removeFurniture(placedId) {
+        roomFurnitureList = roomFurnitureList.filter(f => f.id !== placedId);
+        initObstacles();
+        renderAllUI();
+    }
+
+    function cancelDragOrPlacement() {
+        if (dragState.mode === 'DRAGGING') {
+            dragState.draggedItem.itemRef.gridX = dragState.originalGridX;
+            dragState.draggedItem.itemRef.gridY = dragState.originalGridY;
+        }
+        dragState.mode = 'IDLE';
+        dragState.draggedItem = null;
+        dragState.isOverRecycleZone = false;
+        recycleZone.classList.remove('hovered');
+        initObstacles();
+    }
+
+    function drawFurnitureItem(item, isGhost = false, overrideGridX = null, overrideGridY = null) {
+        const spec = item.spec || FURNITURE_DATABASE.find(s => s.id === item.specId);
+        if (!spec) return;
+
+        const sprite = getSpriteImage(spec.spriteUrl);
+        if (!sprite.complete) return;
+
+        const drawGridX = overrideGridX !== null ? overrideGridX : item.gridX;
+        const drawGridY = overrideGridY !== null ? overrideGridY : item.gridY;
+
+        const bgW = Math.ceil(spec.tileW || 1);
+        const bgH = Math.ceil(spec.tileH || 1);
+
+        if (isGhost) {
+            ctx.save();
+            ctx.globalAlpha = 0.6;
+        }
+
+        for (let w = 0; w < bgW; w++) {
+            for (let h = 0; h < bgH; h++) {
+                const currentX = drawGridX + w;
+                const currentY = drawGridY + h;
+                ctx.fillStyle = (currentX + currentY) % 2 === 0 ? '#8B5A2B' : '#7A4A1D';
+                ctx.fillRect(currentX * GRID_SIZE, currentY * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+            }
+        }
+
+        ctx.drawImage(
+            sprite,
+            spec.pxX, spec.pxY, spec.pxW, spec.pxH,
+            drawGridX * GRID_SIZE,
+            drawGridY * GRID_SIZE,
+            spec.tileW * GRID_SIZE,
+            spec.tileH * GRID_SIZE
+        );
+
+        if (isGhost) {
+            ctx.restore();
+        }
+    }
+
+    function drawSpecIconToCanvas(canvasElement, spec) {
+        if (!canvasElement) return;
+        const iconCtx = canvasElement.getContext('2d');
+        iconCtx.imageSmoothingEnabled = false;
+        iconCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+        const sprite = getSpriteImage(spec.spriteUrl);
+        if (!sprite.complete) return;
+
+        const maxDim = Math.max(spec.pxW, spec.pxH);
+        const scale = 36 / maxDim;
+        const drawW = spec.pxW * scale;
+        const drawH = spec.pxH * scale;
+        const offsetX = (48 - drawW) / 2;
+        const offsetY = (48 - drawH) / 2;
+
+        iconCtx.drawImage(sprite, spec.pxX, spec.pxY, spec.pxW, spec.pxH, offsetX, offsetY, drawW, drawH);
+    }
+
+    // 🟢 5. UI 渲染機制
+    let invCurrentPage = 1;
+    const invPageSize = 4;
+    let activeCatalogCategory = 'ALL';
+
+    function renderAllUI() {
+        renderInventoryUI();
+        renderDailyShopUI();
+        renderCatalogUI();
+    }
+
+    function renderInventoryUI() {
+        const container = document.getElementById('inventoryContainer');
+        container.innerHTML = '';
+
+        const ownedSpecs = FURNITURE_DATABASE.filter(spec => (userInventoryData[spec.id] || 0) > 0);
+        document.getElementById('inventoryBadgeCount').textContent = ownedSpecs.length;
+
+        if (ownedSpecs.length === 0) {
+            container.innerHTML = `<div class="text-center text-secondary py-3">背包空空如也，快去商店逛逛吧！</div>`;
+            return;
+        }
+
+        const totalPages = Math.ceil(ownedSpecs.length / invPageSize) || 1;
+        if (invCurrentPage > totalPages) invCurrentPage = totalPages;
+
+        const startIdx = (invCurrentPage - 1) * invPageSize;
+        const pageItems = ownedSpecs.slice(startIdx, startIdx + invPageSize);
+
+        pageItems.forEach(spec => {
+            const totalOwned = userInventoryData[spec.id] || 0;
+            const placedCount = getPlacedCount(spec.id);
+            const unusedCount = totalOwned - placedCount;
+            const isFullyPlaced = unusedCount <= 0;
+
+            const col = document.createElement('div');
+            col.className = 'col-6';
+            col.innerHTML = `
+                <div class="furniture-card d-flex align-items-center gap-2 ${isFullyPlaced ? 'disabled-card' : ''}">
+                    <div class="furniture-icon-box">
+                        <canvas id="inv_icon_${spec.id}" class="furniture-canvas-icon" width="48" height="48"></canvas>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-bold small text-truncate">${spec.name}</div>
+                        <div class="text-secondary" style="font-size: 11px;">
+                            ${isFullyPlaced ? '<span class="text-warning">全數擺設中</span>' : `可擺放: ${unusedCount}/${totalOwned}`}
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-xs btn-outline-info fw-bold" ${isFullyPlaced ? 'disabled' : ''} onclick="startPlacingFromInventory('${spec.id}')">
+                            ${isFullyPlaced ? '已上場' : '擺放'}
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(col);
+            setTimeout(() => drawSpecIconToCanvas(document.getElementById(`inv_icon_${spec.id}`), spec), 50);
+        });
+
+        document.getElementById('invPageIndicator').textContent = `頁次 ${invCurrentPage} / ${totalPages}`;
+        document.getElementById('invPrevBtn').disabled = invCurrentPage <= 1;
+        document.getElementById('invNextBtn').disabled = invCurrentPage >= totalPages;
+    }
+
+    document.getElementById('invPrevBtn').addEventListener('click', () => { if (invCurrentPage > 1) { invCurrentPage--; renderInventoryUI(); } });
+    document.getElementById('invNextBtn').addEventListener('click', () => { invCurrentPage++; renderInventoryUI(); });
+
+    function renderDailyShopUI() {
+        const container = document.getElementById('dailyShopContainer');
+        container.innerHTML = '';
+
+        if (!dailyShopData || dailyShopData.length === 0) {
+            container.innerHTML = `<div class="text-center text-secondary py-3">載入每日特賣中...</div>`;
+            return;
+        }
+
+        dailyShopData.forEach((slot, index) => {
+            const spec = slot.furniture;
+            const col = document.createElement('div');
+            col.className = 'col-6';
+            col.innerHTML = `
+                <div class="furniture-card d-flex align-items-center gap-2">
+                    <span class="badge bg-danger badge-sale">-30%</span>
+                    <div class="furniture-icon-box">
+                        <canvas id="daily_icon_${index}" class="furniture-canvas-icon" width="48" height="48"></canvas>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-bold small text-truncate">${spec.name}</div>
+                        <div class="text-warning fw-bold" style="font-size: 11px;">
+                            <del class="text-secondary">$${spec.price}</del> $${slot.discountPrice}
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-xs ${slot.isBought ? 'btn-secondary' : 'btn-warning'} fw-bold" ${slot.isBought ? 'disabled' : ''} onclick="buyDailyItem(${slot.slotIndex}, this)">
+                            ${slot.isBought ? '已售罄' : '搶購'}
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(col);
+            setTimeout(() => drawSpecIconToCanvas(document.getElementById(`daily_icon_${index}`), spec), 50);
+        });
+    }
+
+    function renderCatalogUI() {
+        const container = document.getElementById('catalogContainer');
+        container.innerHTML = '';
+
+        const filtered = FURNITURE_DATABASE.filter(spec => {
+            if (!spec.isCatalog) return false;
+            if (activeCatalogCategory === 'ALL') return true;
+            return spec.category === activeCatalogCategory;
+        });
+
+        filtered.forEach(spec => {
+            const col = document.createElement('div');
+            col.className = 'col-6';
+            col.innerHTML = `
+                <div class="furniture-card d-flex align-items-center gap-2">
+                    <div class="furniture-icon-box">
+                        <canvas id="cat_icon_${spec.id}" class="furniture-canvas-icon" width="48" height="48"></canvas>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-bold small text-truncate">${spec.name}</div>
+                        <div class="text-warning fw-bold" style="font-size: 11px;">$${spec.price}</div>
+                    </div>
+                    <div>
+                        <button class="btn btn-xs btn-outline-warning fw-bold" onclick="buyCatalogItem('${spec.id}')">購買</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(col);
+            setTimeout(() => drawSpecIconToCanvas(document.getElementById(`cat_icon_${spec.id}`), spec), 50);
+        });
+    }
+
+    window.filterCatalog = function(cat) {
+        activeCatalogCategory = cat;
+        document.querySelectorAll('.catalog-filter-btn').forEach(btn => {
+            btn.classList.remove('active', 'btn-warning');
+            btn.classList.add('btn-outline-secondary');
+        });
+        event.target.classList.add('active', 'btn-warning');
+        event.target.classList.remove('btn-outline-secondary');
+        renderCatalogUI();
+    };
+
+    // 🟢 6. 切換建造模式與存檔處理
+    toggleBuildBtn.addEventListener('click', async function() {
+        isBuildMode = !isBuildMode;
+
+        if (isBuildMode) {
+            modeBadge.className = "badge bg-warning text-dark fs-6 mode-badge";
+            modeBadge.innerHTML = '<i class="bi bi-hammer me-1"></i>建造模式中';
+            toggleBuildBtn.className = "btn btn-outline-success btn-sm fw-bold";
+            toggleBuildBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>完成建造';
+            buildControls.style.display = 'block';
+            recycleZone.style.display = 'flex';
+
+            character.path = [];
+            character.state = 'IDLE';
+
+            await loadInventoryData();
+            await loadDailyShopData();
+            renderAllUI();
+        } else {
+            await saveRoomLayoutToBackend();
+
+            modeBadge.className = "badge bg-success fs-6 mode-badge";
+            modeBadge.innerHTML = '<i class="bi bi-controller me-1"></i>普通冒險模式';
+            toggleBuildBtn.className = "btn btn-warning btn-sm fw-bold";
+            toggleBuildBtn.innerHTML = '<i class="bi bi-hammer me-1"></i>切換至建造模式';
+            buildControls.style.display = 'none';
+            recycleZone.style.display = 'none';
+
+            cancelDragOrPlacement();
+        }
+    });
+
+    // 🟢 7. 角色動畫與導航 (BFS)
+    const character = {
+        gridX: 2, gridY: 8, pixelX: 2 * GRID_SIZE, pixelY: 8 * GRID_SIZE,
+        speed: 2, state: 'IDLE', facing: 'DOWN', color: '#00bcd4', path: [], idleTimer: null
+    };
+
+    function findPath(startX, startY, targetX, targetY) {
+        if (obstacleMap[targetY][targetX] === 1) return [];
+
+        const queue = [[startX, startY]];
+        const cameFrom = {};
+        const startKey = startX + "," + startY;
+        cameFrom[startKey] = null;
+
+        const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+        while (queue.length > 0) {
+            const currNode = queue.shift();
+            const cx = currNode[0];
+            const cy = currNode[1];
+
+            if (cx === targetX && cy === targetY) break;
+
+            for (let i = 0; i < directions.length; i++) {
+                const nx = cx + directions[i][0];
+                const ny = cy + directions[i][1];
+
+                if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && obstacleMap[ny][nx] === 0) {
+                    const nextKey = nx + "," + ny;
+                    if (!(nextKey in cameFrom)) {
+                        queue.push([nx, ny]);
+                        cameFrom[nextKey] = [cx, cy];
+                    }
+                }
+            }
+        }
+
+        const path = [];
+        let curr = [targetX, targetY];
+        while (curr) {
+            path.push(curr);
+            curr = cameFrom[curr[0] + "," + curr[1]];
+        }
+
+        path.reverse();
+        path.shift();
+        return path;
+    }
+
+    function updateCharacterPosition() {
+        if (character.state !== 'WALKING' || character.path.length === 0) return;
+
+        const nextNode = character.path[0];
+        const targetPixelX = nextNode[0] * GRID_SIZE;
+        const targetPixelY = nextNode[1] * GRID_SIZE;
+
+        const dx = targetPixelX - character.pixelX;
+        const dy = targetPixelY - character.pixelY;
+
+        if (Math.abs(dx) > character.speed) {
+            character.pixelX += Math.sign(dx) * character.speed;
+        } else {
+            character.pixelX = targetPixelX;
+        }
+
+        if (Math.abs(dy) > character.speed) {
+            character.pixelY += Math.sign(dy) * character.speed;
+        } else {
+            character.pixelY = targetPixelY;
+        }
+
+        if (character.pixelX === targetPixelX && character.pixelY === targetPixelY) {
+            character.gridX = nextNode[0];
+            character.gridY = nextNode[1];
+            character.path.shift();
+
+            if (character.path.length === 0) {
+                character.state = 'IDLE';
+                scheduleNextIdleWander();
+            }
+        }
+    }
+
+    function scheduleNextIdleWander() {
+        if (character.idleTimer) clearTimeout(character.idleTimer);
+        character.idleTimer = setTimeout(() => {
+            if (character.state === 'IDLE' && !isBuildMode) {
+                let nextX, nextY, attempts = 0;
+                do {
+                    nextX = Math.floor(Math.random() * COLS);
+                    nextY = Math.floor(Math.random() * (ROWS - 1)) + 1;
+                    attempts++;
+                } while (obstacleMap[nextY][nextX] === 1 && attempts < 50);
+
+                if (obstacleMap[nextY][nextX] === 0) {
+                    const path = findPath(character.gridX, character.gridY, nextX, nextY);
+                    if (path.length > 0) {
+                        character.path = path;
+                        character.state = 'WALKING';
+                    }
+                }
+            }
+        }, 4000);
+    }
+
+    function renderScene() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let x = 0; x < COLS; x++) {
+            for (let y = 0; y < ROWS; y++) {
+                ctx.fillStyle = (x + y) % 2 === 0 ? '#8B5A2B' : '#7A4A1D';
+                ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+            }
+        }
+
+        const renderQueue = [];
+        roomFurnitureList.forEach(item => {
+            if (dragState.mode === 'DRAGGING' && dragState.draggedItem.itemRef.id === item.id) return;
+
+            const spec = item.spec || FURNITURE_DATABASE.find(s => s.id === item.specId);
+            const tileH = spec ? spec.tileH : 1;
+
+            renderQueue.push({
+                sortY: (item.gridY + tileH) * GRID_SIZE,
+                draw: () => drawFurnitureItem(item)
+            });
+        });
+
+        renderQueue.push({
+            sortY: character.pixelY + GRID_SIZE,
+            draw: () => drawCharacter()
+        });
+
+        renderQueue.sort((a, b) => a.sortY - b.sortY);
+        renderQueue.forEach(i => i.draw());
+
+        if (isBuildMode && (dragState.mode === 'DRAGGING' || dragState.mode === 'PLACING_NEW') && dragState.draggedItem) {
+            if (!dragState.isOverRecycleZone) {
+                const spec = dragState.draggedItem.spec || FURNITURE_DATABASE.find(s => s.id === dragState.draggedItem.specId);
+                if (spec) {
+                    const tempItem = { specId: spec.id, spec: spec };
+                    drawFurnitureItem(tempItem, true, dragState.currentMouseGridX, dragState.currentMouseGridY);
+
+                    const occupyW = Math.ceil(spec.tileW || 1);
+                    const occupyH = Math.ceil(spec.tileH || 1);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = dragState.isValidPlacement ? '#00ff88' : '#ff4444';
+                    ctx.fillStyle = dragState.isValidPlacement ? 'rgba(0, 255, 136, 0.2)' : 'rgba(255, 68, 68, 0.2)';
+
+                    const rectX = dragState.currentMouseGridX * GRID_SIZE;
+                    const rectY = dragState.currentMouseGridY * GRID_SIZE;
+                    const rectW = occupyW * GRID_SIZE;
+                    const rectH = occupyH * GRID_SIZE;
+
+                    ctx.fillRect(rectX, rectY, rectW, rectH);
+                    ctx.strokeRect(rectX, rectY, rectW, rectH);
+                }
+            }
+        }
+    }
+
+    function drawCharacter() {
+        const drawX = character.pixelX + 8;
+        const drawY = character.pixelY + 6;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.beginPath();
+        ctx.ellipse(character.pixelX + 20, character.pixelY + 34, 12, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = character.color;
+        ctx.beginPath();
+        ctx.roundRect(drawX, drawY, 24, 28, 6);
+        ctx.fill();
+
+        ctx.fillStyle = '#121212';
+        ctx.fillRect(drawX + 5, drawY + 8, 4, 4);
+        ctx.fillRect(drawX + 15, drawY + 8, 4, 4);
+    }
+
+    // 🟢 8. 全域滑鼠事件
+    window.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        const isInsideCanvas = clickX >= 0 && clickX <= canvas.width && clickY >= 0 && clickY <= canvas.height;
+
+        if (isBuildMode && isInsideCanvas) {
+            const gridX = Math.floor(clickX / GRID_SIZE);
+            const gridY = Math.floor(clickY / GRID_SIZE);
+
+            if (dragState.mode === 'PLACING_NEW') return;
+
+            const clickedFurniture = roomFurnitureList.find(item => {
+                const spec = item.spec || FURNITURE_DATABASE.find(s => s.id === item.specId);
+                if (!spec) return false;
+                const occupyW = Math.ceil(spec.tileW || 1);
+                const occupyH = Math.ceil(spec.tileH || 1);
+                return gridX >= item.gridX && gridX < item.gridX + occupyW &&
+                       gridY >= item.gridY && gridY < item.gridY + occupyH;
+            });
+
+            if (clickedFurniture) {
+                const spec = clickedFurniture.spec || FURNITURE_DATABASE.find(s => s.id === clickedFurniture.specId);
+                dragState.mode = 'DRAGGING';
+                dragState.draggedItem = { itemRef: clickedFurniture, spec: spec };
+                dragState.originalGridX = clickedFurniture.gridX;
+                dragState.originalGridY = clickedFurniture.gridY;
+                dragState.currentMouseGridX = gridX;
+                dragState.currentMouseGridY = gridY;
+
+                if (character.idleTimer) clearTimeout(character.idleTimer);
+                character.path = [];
+                character.state = 'IDLE';
+                initObstacles();
+
+                dragState.isValidPlacement = canPlaceFurniture(spec, gridX, gridY, clickedFurniture.id);
+            }
+        }
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!isBuildMode) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        if (dragState.mode === 'DRAGGING' || dragState.mode === 'PLACING_NEW') {
+            const recycleRect = recycleZone.getBoundingClientRect();
+            const isOverRecycle = e.clientX >= recycleRect.left && e.clientX <= recycleRect.right &&
+                                  e.clientY >= recycleRect.top && e.clientY <= recycleRect.bottom;
+
+            dragState.isOverRecycleZone = isOverRecycle;
+            if (isOverRecycle) {
+                recycleZone.classList.add('hovered');
+            } else {
+                recycleZone.classList.remove('hovered');
+            }
+        }
+
+        const gridX = Math.floor(mouseX / GRID_SIZE);
+        const gridY = Math.floor(mouseY / GRID_SIZE);
+
+        if (gridX !== dragState.currentMouseGridX || gridY !== dragState.currentMouseGridY) {
+            dragState.currentMouseGridX = gridX;
+            dragState.currentMouseGridY = gridY;
+
+            if (dragState.mode === 'DRAGGING' || dragState.mode === 'PLACING_NEW') {
+                const spec = dragState.draggedItem.spec;
+                const currentId = dragState.mode === 'DRAGGING' ? dragState.draggedItem.itemRef.id : null;
+                dragState.isValidPlacement = canPlaceFurniture(spec, gridX, gridY, currentId);
+            }
+        }
+    });
+
+    window.addEventListener('mouseup', function(e) {
+        if (e.button !== 0) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const isInsideCanvas = mouseX >= 0 && mouseX <= canvas.width && mouseY >= 0 && mouseY <= canvas.height;
+
+        if (dragState.isOverRecycleZone && dragState.draggedItem) {
+            if (dragState.mode === 'DRAGGING') {
+                removeFurniture(dragState.draggedItem.itemRef.id);
+            }
+            cancelDragOrPlacement();
+            return;
+        }
+
+        if (isBuildMode && dragState.mode === 'PLACING_NEW') {
+            if (isInsideCanvas && dragState.isValidPlacement) {
+                const newPlacedItem = {
+                    id: 'placed_' + Date.now(),
+                    specId: dragState.draggedItem.specId,
+                    gridX: dragState.currentMouseGridX,
+                    gridY: dragState.currentMouseGridY,
+                    spec: dragState.draggedItem.spec
+                };
+                roomFurnitureList.push(newPlacedItem);
+                initObstacles();
+                renderAllUI();
+            }
+            dragState.mode = 'IDLE';
+            dragState.draggedItem = null;
+            return;
+        }
+
+        if (isBuildMode && dragState.mode === 'DRAGGING') {
+            if (isInsideCanvas && dragState.isValidPlacement) {
+                dragState.draggedItem.itemRef.gridX = dragState.currentMouseGridX;
+                dragState.draggedItem.itemRef.gridY = dragState.currentMouseGridY;
+            } else {
+                dragState.draggedItem.itemRef.gridX = dragState.originalGridX;
+                dragState.draggedItem.itemRef.gridY = dragState.originalGridY;
+            }
+
+            dragState.mode = 'IDLE';
+            dragState.draggedItem = null;
+            initObstacles();
+            return;
+        }
+
+        if (!isBuildMode && isInsideCanvas) {
+            const targetX = Math.floor(mouseX / GRID_SIZE);
+            const targetY = Math.floor(mouseY / GRID_SIZE);
+
+            if (obstacleMap[targetY][targetX] === 0) {
+                const path = findPath(character.gridX, character.gridY, targetX, targetY);
+                if (path.length > 0) {
+                    if (character.idleTimer) clearTimeout(character.idleTimer);
+                    character.path = path;
+                    character.state = 'WALKING';
+                }
+            }
+        }
+    });
+
+    window.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        if (isBuildMode) cancelDragOrPlacement();
+    });
+
+    function gameLoop() {
+        renderScene();
+        updateCharacterPosition();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // -------------------------------------------------------------
+    // ⏱️ 9. 專注計時器控制邏輯 (Focus Timer)
+    // -------------------------------------------------------------
+    let timerInterval = null;
+    let timerSeconds = 25 * 60;
+    let totalTimerSeconds = 25 * 60;
+    let isTimerRunning = false;
+
+    const timerDisplay = document.getElementById('timerDisplay');
+    const timerModeSelect = document.getElementById('timerModeSelect');
+    const startTimerBtn = document.getElementById('startTimerBtn');
+    const pauseTimerBtn = document.getElementById('pauseTimerBtn');
+    const resetTimerBtn = document.getElementById('resetTimerBtn');
+    const timerProgressBar = document.getElementById('timerProgressBar');
+
+    function updateTimerUI() {
+        const minutes = Math.floor(timerSeconds / 60);
+        const seconds = timerSeconds % 60;
+        timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+        if (timerModeSelect.value === 'STOPWATCH') {
+            timerProgressBar.style.width = '100%';
+        } else {
+            const percent = totalTimerSeconds > 0 ? ((totalTimerSeconds - timerSeconds) / totalTimerSeconds) * 100 : 0;
+            timerProgressBar.style.width = `${percent}%`;
+        }
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+        startTimerBtn.disabled = false;
+        pauseTimerBtn.disabled = true;
+
+        const mode = timerModeSelect.value;
+        if (mode === 'STOPWATCH') {
+            timerSeconds = 0;
+            totalTimerSeconds = 0;
+        } else {
+            timerSeconds = parseInt(mode) * 60;
+            totalTimerSeconds = timerSeconds;
+        }
+        updateTimerUI();
+    }
+
+    timerModeSelect.addEventListener('change', resetTimer);
+
+    startTimerBtn.addEventListener('click', () => {
+        if (isTimerRunning) return;
+        isTimerRunning = true;
+        startTimerBtn.disabled = true;
+        pauseTimerBtn.disabled = false;
+
+        const mode = timerModeSelect.value;
+        timerInterval = setInterval(() => {
+            if (mode === 'STOPWATCH') {
+                timerSeconds++;
+            } else {
+                if (timerSeconds > 0) {
+                    timerSeconds--;
+                } else {
+                    clearInterval(timerInterval);
+                    isTimerRunning = false;
+                    startTimerBtn.disabled = false;
+                    pauseTimerBtn.disabled = true;
+                    alert("🎉 專注時間結束！辛苦了，獲得冒險獎勵！");
+                }
+            }
+            updateTimerUI();
+        }, 1000);
+    });
+
+    pauseTimerBtn.addEventListener('click', () => {
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+        startTimerBtn.disabled = false;
+        pauseTimerBtn.disabled = true;
+    });
+
+    resetTimerBtn.addEventListener('click', resetTimer);
+
+    // -------------------------------------------------------------
+    // 🎵 10. Lo-Fi 音樂電台控制邏輯 (Lo-Fi Radio)
+    // -------------------------------------------------------------
+    const bgmAudio = document.getElementById('bgmAudio');
+    const bgmSelect = document.getElementById('bgmSelect');
+    const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+    const audioIcon = document.getElementById('audioIcon');
+    const volumeSlider = document.getElementById('volumeSlider');
+
+    bgmAudio.src = bgmSelect.value;
+    bgmAudio.volume = volumeSlider.value;
+
+    toggleAudioBtn.addEventListener('click', () => {
+        if (bgmAudio.paused) {
+            bgmAudio.play().then(() => {
+                audioIcon.className = 'bi bi-pause-fill fs-5';
+            }).catch(err => {
+                console.error("無法播放音訊:", err);
+            });
+        } else {
+            bgmAudio.pause();
+            audioIcon.className = 'bi bi-play-fill fs-5';
+        }
+    });
+
+    bgmSelect.addEventListener('change', () => {
+        const wasPlaying = !bgmAudio.paused;
+        bgmAudio.src = bgmSelect.value;
+        if (wasPlaying) {
+            bgmAudio.play();
+        }
+    });
+
+    volumeSlider.addEventListener('input', (e) => {
+        bgmAudio.volume = e.target.value;
+    });
+
+    // 🟢 頁面載入完成後啟動 API 資料對接與計時器初始化
+    window.addEventListener('DOMContentLoaded', () => {
+        loadInitialData();
+        scheduleNextIdleWander();
+        gameLoop();
+        resetTimer();
+    });
+</script>
+</body>
+</html>

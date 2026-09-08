@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="quests-section" class="w-100">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <h1 class="text-white fw-bold m-0"><i class="bi bi-journal-check text-success me-3"></i>冒險者公會公告欄</h1>
+
+        <div class="btn-group bg-dark p-1 rounded border border-secondary" role="group" id="quest-filter-group">
+            <button type="button" class="btn btn-sm btn-success px-3 fw-bold filter-btn active" data-filter="ALL">全部任務</button>
+            <button type="button" class="btn btn-sm text-secondary px-3 fw-bold filter-btn" data-filter="DAILY">每日任務</button>
+            <button type="button" class="btn btn-sm text-secondary px-3 fw-bold filter-btn" data-filter="WEEKLY">每週任務</button>
+            <button type="button" class="btn btn-sm text-secondary px-3 fw-bold filter-btn" data-filter="EVENT">活動任務</button>
+            <button type="button" class="btn btn-sm text-secondary px-3 fw-bold filter-btn" data-filter="OTHER">其他任務</button>
+        </div>
+    </div>
+
+    <div class="row g-4" id="quest-cards-container">
+        <div class="col-12 col-md-6 quest-card-item"
+             th:each="prog : ${questProgresses}"
+             th:data-type="${prog.quest.type.name()}">
+
+            <div class="dashboard-card p-4 h-100 border-start border-4 position-relative"
+                 th:classappend="${prog.isRewarded} ? 'border-secondary bg-dark-50' : (${prog.isCompleted} ? 'border-success' : 'border-info')">
+
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <span class="badge mb-2"
+                              th:classappend="${prog.quest.type.cssClass}"
+                              th:text="${prog.quest.type.displayName}">任務類型</span>
+                        <h5 class="text-white fw-bold mb-1" th:text="${prog.quest.title}">活躍份子</h5>
+                        <p class="text-secondary small mb-0" th:text="${prog.quest.description}">任務敘述</p>
+                    </div>
+                    <span class="text-info fw-bold" th:text="${prog.currentCount} + ' / ' + ${prog.quest.targetCount}">0 / 1</span>
+                </div>
+
+                <div class="progress bg-dark mb-4" style="height: 8px;">
+                    <div class="progress-bar" th:classappend="${prog.isCompleted} ? 'bg-success' : 'bg-info'" th:style="|width: ${prog.currentCount * 100 / prog.quest.targetCount}%;|"></div>
+                </div>
+                <div class="d-flex gap-3 bg-dark p-2 rounded mb-4 small">
+                    <span class="text-warning fw-bold"><i class="bi bi-coin me-1"></i>+<span th:text="${prog.quest.rewardCoins}">50</span> Coin</span>
+                    <span class="text-info fw-bold"><i class="bi bi-patch-plus me-1"></i>+<span th:text="${prog.quest.rewardExp}">100</span> EXP</span>
+                </div>
+
+                <button th:if="${prog.isRewarded}" class="btn btn-secondary w-100 py-2 fw-bold" disabled><i class="bi bi-check-circle-fill me-2"></i>獎勵已領取</button>
+                <button th:if="${!prog.isRewarded && prog.isCompleted}" class="btn btn-success w-100 py-2 fw-bold claim-reward-btn" th:data-id="${prog.id}"><i class="bi bi-gift-fill me-2"></i>領取獎勵</button>
+                <button th:if="${!prog.isRewarded && !prog.isCompleted}" class="btn btn-outline-info w-100 py-2 fw-bold" disabled><i class="bi bi-hourglass-split me-2"></i>任務進行中...</button>
+
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

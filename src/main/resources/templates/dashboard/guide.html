@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="guide-section" class="w-100">
+    <h1 class="text-white fw-bold mb-5"><i class="bi bi-book me-3" style="color: #fd7e14;"></i>冒險指南手冊</h1>
+
+    <div class="row g-4">
+        <div class="col-12 col-xl-8">
+            <div class="dashboard-card p-4 h-100">
+                <h5 class="text-white fw-bold mb-4"><i class="bi bi-trophy text-warning me-2"></i>社群行為收益規則表</h5>
+                <table class="table table-dark table-bordered align-middle text-center">
+                    <thead>
+                    <tr class="text-secondary">
+                        <th>觸發動作</th>
+                        <th>單次獲得經驗</th>
+                        <th>單次獲得金幣</th>
+                        <th>每日獲取上限</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td class="text-start fw-bold">✍️ 發布全新筆記</td>
+                        <td class="text-info">50 EXP</td>
+                        <td class="text-warning">20 Coin</td>
+                        <td class="text-success">5 次 / 天</td>
+                    </tr>
+                    <tr>
+                        <td class="text-start fw-bold">💬 發表文章留言</td>
+                        <td class="text-info">10 EXP</td>
+                        <td class="text-warning">5 Coin</td>
+                        <td class="text-success">10 次 / 天</td>
+                    </tr>
+                    <tr>
+                        <td class="text-start fw-bold">❤️ 筆記獲得他人點讚</td>
+                        <td class="text-info">30 EXP</td>
+                        <td class="text-warning">10 Coin</td>
+                        <td class="text-success">30 次 / 天</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="dashboard-card p-4 h-100" style="border-color: #fd7e14; background: rgba(253, 126, 20, 0.05);">
+                <h5 class="text-white fw-bold mb-3"><i class="bi bi-patch-question text-orange me-2" style="color: #fd7e14;"></i>世界法則叮嚀</h5>
+                <ul class="text-secondary small lh-lg ps-3">
+                    <li>所有獎勵次數會在<span class="text-white fw-bold">每日凌晨 00:00</span> 自動重置清零。</li>
+                    <li>超過每日獎勵上限後，繼續發文/留言仍可正常操作，但不再發放金幣與經驗值。</li>
+                    <li>累積金幣可至<span class="text-info fw-bold">榮譽黑市商城</span>換取酷炫的暱稱特效與限定頭像框！</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

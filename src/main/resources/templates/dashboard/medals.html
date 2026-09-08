@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="medals-section" class="w-100">
+
+    <h1 class="text-white fw-bold mb-5">
+        <i class="bi bi-trophy me-3 text-warning"></i>成就與永久稱號殿堂
+    </h1>
+
+    <div class="row g-4">
+
+        <div class="col-12 col-md-6">
+            <div class="dashboard-card p-4 h-100" style="border-color: #ffc107; background: linear-gradient(145deg, #1e1e1a, #252520);">
+                <div class="d-flex align-items-center">
+                    <div class="me-4 bg-dark border border-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 65px; height: 65px; box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);">
+                        <i class="bi bi-award-fill text-warning fs-2"></i>
+                    </div>
+                    <div class="w-100">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h5 class="text-white fw-bold mb-1">初試啼聲</h5>
+                            <span class="badge bg-success fw-bold">已達成</span>
+                        </div>
+                        <p class="text-secondary small mb-2">達成條件：成功發表個人第一篇社群筆記</p>
+                        <span class="text-info small fw-bold"><i class="bi bi-tags me-1"></i>解鎖稱號：【初試啼聲】</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <div class="dashboard-card p-4 h-100">
+                <div class="d-flex align-items-center">
+                    <div class="me-4 bg-dark border border-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 65px; height: 65px;">
+                        <i class="bi bi-fire text-secondary fs-2"></i>
+                    </div>
+                    <div class="w-100">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h5 class="text-secondary fw-bold mb-1">萬人稱頌的創作者</h5>
+                            <span class="text-secondary small fw-bold">進度 42%</span>
+                        </div>
+                        <p class="text-secondary small mb-3">達成條件：個人筆記累計獲得 100 個讚</p>
+                        <div class="progress bg-dark" style="height: 6px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: 42%;"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-2 small text-secondary">
+                            <span>當前進度：42 / 100 讚</span>
+                            <span class="text-warning"><i class="bi bi-tags me-1"></i>解鎖稱號：【萬人稱頌】</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div> </div>
+
+</body>
+</html>

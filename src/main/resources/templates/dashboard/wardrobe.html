@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="wardrobe-section" class="w-100" id="wardrobe-section-wrapper">
+
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="text-white fw-bold mb-1"><i class="bi bi-person-badge me-3 text-warning"></i>個人專屬更衣室</h1>
+            <p class="text-secondary small m-0">在這裡檢視你獲得的榮譽外觀，並自由穿戴搭配你的個人風格。</p>
+        </div>
+
+        <div class="btn-group bg-dark p-1 rounded border border-secondary" role="group" th:if="${!#lists.isEmpty(unlockedProducts)}">
+            <button type="button" class="btn btn-sm btn-warning text-dark px-3 fw-bold wardrobe-filter-btn active" data-filter="ALL">全部收藏</button>
+            <button type="button" class="btn btn-sm text-secondary px-3 fw-bold wardrobe-filter-btn" data-filter="FRAME">頭像框</button>
+            <button type="button" class="btn btn-sm text-secondary px-3 fw-bold wardrobe-filter-btn" data-filter="IMAGE">自訂頭像</button>
+        </div>
+    </div>
+
+    <!-- 空倉庫狀態 -->
+    <div th:if="${#lists.isEmpty(unlockedProducts)}" class="text-center py-5 dashboard-card border-secondary" style="background: rgba(0,0,0,0.2);">
+        <i class="bi bi-box-seam text-secondary display-1 mb-3 d-block"></i>
+        <h4 class="text-muted fw-bold">外觀倉庫空空如也...</h4>
+        <p class="text-secondary small mb-4">你尚未解鎖任何外觀資產，快去完成成就或前往黑市選購！</p>
+        <button class="btn btn-info btn-sm fw-bold text-dark" onclick="document.getElementById('nav-shop-btn')?.click();">🛒 前往黑市選購補給</button>
+    </div>
+
+    <!-- 外觀卡片列表 -->
+    <div th:if="${!#lists.isEmpty(unlockedProducts)}" class="row g-4">
+        <div th:each="product : ${unlockedProducts}" class="col-md-4 mb-4 wardrobe-item-card-item" th:data-type="${product.category.name()}">
+            <div class="dashboard-card p-4 text-center h-100 d-flex flex-column justify-content-between border border-secondary position-relative avatar-card"
+                 th:classappend="${(product.category.name() == 'FRAME' && user.currentFrame == product.assetType) || (product.category.name() == 'IMAGE' && user.currentAvatar == product.assetType)} ? 'border-success shadow-lg' : ''">
+
+                <div class="flex-grow-1 d-flex flex-column align-items-center justify-content-start">
+                    <div class="mb-3 d-flex align-items-center justify-content-center" style="width: 90px; height: 90px;">
+
+                        <!-- 1. 頭像框預覽：疊加使用者當前實際頭像（若有自訂頭像則顯示自訂，否則顯示 Identicon） -->
+                        <div th:if="${product.category.name() == 'FRAME'}"
+                             class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle shadow"
+                             style="width: 78px; height: 78px;"
+                             th:classappend="${product.styleValue}">
+                            <img th:if="${user.currentAvatar != null && equippedAvatar != null}"
+                                 th:src="@{'/images/avatars/' + ${equippedAvatar.styleValue}}"
+                                 class="rounded-circle bg-white" style="width: 68px; height: 68px; object-fit: cover;">
+                            <img th:if="${user.currentAvatar == null || equippedAvatar == null}"
+                                 th:src="|https://api.dicebear.com/7.x/identicon/svg?seed=${#strings.toLowerCase(#strings.trim(user.username))}|"
+                                 class="rounded-circle bg-white" style="width: 68px; height: 68px; object-fit: cover;">
+                        </div>
+
+                        <!-- 2. 自訂頭像預覽 -->
+                        <div th:if="${product.category.name() == 'IMAGE'}"
+                             class="avatar-frame d-flex align-items-center justify-content-center bg-dark rounded-circle border border-2 border-warning shadow"
+                             style="width: 78px; height: 78px;">
+                            <img th:src="@{'/images/avatars/' + ${product.styleValue}}"
+                                 class="rounded-circle bg-white" style="width: 72px; height: 72px; object-fit: cover;">
+                        </div>
+                    </div>
+
+                    <h6 class="text-white fw-bold mb-1" th:text="${product.displayName}">外觀名稱</h6>
+                    <p class="text-muted small mb-3" th:text="${product.description}">外觀效果說明</p>
+                </div>
+
+                <!-- 操作按鈕：統一將卸除 action 改為 REMOVE 以對齊 ShopService -->
+                <div class="mt-auto w-100">
+                    <div th:if="${product.category.name() == 'FRAME'}">
+                        <button th:if="${user.currentFrame == product.assetType}" class="btn btn-warning btn-sm w-100 fw-bold equip-asset-btn"
+                                th:data-asset="${product.assetType}" th:data-category="FRAME" th:data-action="REMOVE">❌ 卸下裝備</button>
+                        <button th:if="${user.currentFrame != product.assetType}" class="btn btn-outline-info btn-sm w-100 fw-bold equip-asset-btn"
+                                th:data-asset="${product.assetType}" th:data-category="FRAME" th:data-action="EQUIP">⚔️ 穿上外觀</button>
+                    </div>
+                    <div th:if="${product.category.name() == 'IMAGE'}">
+                        <button th:if="${user.currentAvatar == product.assetType}" class="btn btn-warning btn-sm w-100 fw-bold equip-asset-btn"
+                                th:data-asset="${product.assetType}" th:data-category="IMAGE" th:data-action="REMOVE">❌ 卸下裝備</button>
+                        <button th:if="${user.currentAvatar != product.assetType}" class="btn btn-outline-info btn-sm w-100 fw-bold equip-asset-btn"
+                                th:data-asset="${product.assetType}" th:data-category="IMAGE" th:data-action="EQUIP">⚔️ 穿上外觀</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
