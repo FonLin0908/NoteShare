@@ -1,6 +1,15 @@
 # NoteShare
 
-NoteShare 是以 Spring Boot 建置的筆記分享與學習社群平台。除了筆記管理，也整合留言、收藏、追蹤、排行榜、成就任務、商城與個人自習室等遊戲化功能。
+NoteShare 是以 Spring Boot 建置的筆記分享與學習社群平台，將內容管理、社群互動與遊戲化機制整合在同一套系統中。使用者可以整理與分享學習筆記，並透過任務、成就、排行榜及個人空間獲得持續學習的回饋。
+
+## 專案亮點
+
+- 採用 MVC 與分層架構，區分 Controller、Service、Repository 及資料模型
+- 使用 Spring Data JPA 管理會員、筆記、留言、收藏及遊戲資料的關聯
+- 以 Session 搭配攔截器實作登入狀態與角色權限控制
+- 支援筆記可見範圍、分享連結、多媒體內容及檔案上傳
+- 透過排程與事件邏輯實作每日任務、成就、經驗值及排行榜
+- 將商城、外觀收藏與自習室配置整合為遊戲化學習體驗
 
 ## 主要功能
 
@@ -16,15 +25,13 @@ NoteShare 是以 Spring Boot 建置的筆記分享與學習社群平台。除了
 
 ## 技術棧
 
-- Java 21
-- Spring Boot 4.0.6
-- Spring MVC、Thymeleaf
-- Spring Data JPA
-- Spring Security
-- PostgreSQL（可使用 Supabase）
-- Maven
-- Lombok
-- Jsoup
+| 分類 | 使用技術 |
+| --- | --- |
+| Backend | Java 21、Spring Boot 4.0.6、Spring MVC |
+| Frontend | Thymeleaf、HTML、CSS、JavaScript、Bootstrap |
+| Database | PostgreSQL、Spring Data JPA、Hibernate |
+| Security | Spring Security、BCrypt、Session、Interceptor |
+| Tools | Maven、Lombok、Jsoup、Git |
 
 ## 環境需求
 
@@ -73,18 +80,6 @@ mvn spring-boot:run
 http://localhost:8080
 ```
 
-## 測試
-
-```powershell
-.\mvnw.cmd test
-```
-
-或：
-
-```powershell
-mvn test
-```
-
 ## 專案結構
 
 ```text
@@ -106,24 +101,4 @@ src/main/resources/
 └── application-example.properties
 ```
 
-使用者上傳的檔案預設放在專案根目錄的 `uploads/`，此資料夾不會提交到 Git。
-
-## 開發注意事項
-
-- 專案目前使用 Session 與攔截器管理登入狀態。
-- CSRF 目前處於停用狀態，正式部署前應恢復保護並讓 AJAX 請求攜帶 CSRF Token。
-- `DemoApplication` 包含開發用初始帳號與範例筆記資料，正式環境應移除或改成僅在開發 Profile 執行。
-- 自習室購買流程仍有餘額驗證與扣款 TODO，完成前不建議開放正式交易。
-- 正式部署時應驗證上傳檔案的 MIME type、內容與大小。
-
-## Git 提交
-
-```powershell
-git add README.md
-git commit -m "docs: add project README"
-git push
-```
-
-## License
-
-目前尚未指定授權條款。如要開放他人使用或貢獻，建議加入適合的 `LICENSE`。
+使用者上傳的檔案預設放在專案根目錄的 `uploads/`，並透過 `.gitignore` 排除本機檔案與敏感設定。
